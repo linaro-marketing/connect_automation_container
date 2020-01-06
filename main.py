@@ -51,7 +51,7 @@ def generate_images(social_image_generator, json_data):
         # Create the image options dictionary
         image_options = {
             "file_name": session["session_id"],
-            "elements" : {
+            "elements": {
                 "images": [
                     {
                         "dimensions": {
@@ -73,7 +73,7 @@ def generate_images(social_image_generator, json_data):
                         "wrap_width": 28,
                         "value": "test",
                         "position": {
-                            "x": [920,970],
+                            "x": [920, 970],
                             "y": 400
                         },
                         "font": {
@@ -150,12 +150,11 @@ def generate_images(social_image_generator, json_data):
         social_image_generator.create_image(image_options)
 
 
-
-
 class AutomationContainer:
     def __init__(self, args):
         # Instatiate the ScehdDataInterfa   ce which is used by other modules for the data source
-        self.sched_data = SchedDataInterface("https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "SAN19")
+        self.sched_data = SchedDataInterface(
+            "https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "SAN19")
         self.args = args
         self.main(args)
 
@@ -192,7 +191,8 @@ class AutomationContainer:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Connect Automation")
     parser.add_argument('-s', '--sched-url', help='Specify the Sched.com URL')
-    parser.add_argument('-u', '--uid', help='Specific the Unique ID for the Linaro Connect event i.e. SAN19')
+    parser.add_argument(
+        '-u', '--uid', help='Specific the Unique ID for the Linaro Connect event i.e. SAN19')
     parser.add_argument('--social-images', action='store_true',
                         help='If specified then the Social Media Share images are generated.')
     parser.add_argument('--upload-presentations', action='store_true',
