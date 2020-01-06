@@ -15,15 +15,13 @@ ENV LC_ALL en_US.UTF-8
 
 COPY requirements.txt /tmp/
 
-COPY entrypoint.sh /usr/local/bin/
-RUN chmod +x /usr/local/bin/entrypoint.sh
-
 RUN pip3 install -r /tmp/requirements.txt
-RUN pip3 install git+https://github.com/linaro-marketing/JekyllPostTool.git
-RUN pip3 install git+https://github.com/linaro-marketing/linaro_connect_resources_updater.git
-RUN pip3 install git+https://github.com/linaro-marketing/SchedDataInterface.git@master
-RUN pip3 install git+https://github.com/linaro-marketing/SocialMediaImageGenerator.git
-RUN pip3 install git+https://github.com/linaro-marketing/SchedPresentationTool.git
+RUN pip3 install \
+ git+https://github.com/linaro-marketing/JekyllPostTool.git@master \
+ git+https://github.com/linaro-marketing/linaro_connect_resources_updater.git@master \
+ git+https://github.com/linaro-marketing/SchedDataInterface.git@master \
+ git+https://github.com/linaro-marketing/SocialMediaImageGenerator.git \
+ git+https://github.com/linaro-marketing/SchedPresentationTool.git
 
 WORKDIR /app
 COPY . /app
@@ -32,4 +30,4 @@ RUN chmod +x /app/*
 
 ENV ENV="/app:${PATH}"
 
-ENTRYPOINT [ "entrypoint.sh" ]
+ENTRYPOINT [ "/app/main.py" ]
