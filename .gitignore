@@ -1,2 +1,4 @@
 venv/
 secrets.py
+assets/images/*
+!assets/images/placeholder.jpg
