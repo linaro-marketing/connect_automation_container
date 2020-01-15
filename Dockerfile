@@ -30,4 +30,4 @@ RUN chmod +x /app/*
 
 ENV ENV="/app:${PATH}"
 
-ENTRYPOINT [ "/app/main.py" ]
+# ENTRYPOINT [ "/app/main.py" ]
