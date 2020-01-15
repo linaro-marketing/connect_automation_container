@@ -9,7 +9,7 @@ from sched_data_interface import SchedDataInterface
 from connect_json_updater import ConnectJSONUpdater
 from jekyll_post_tool import JekyllPostTool
 from sched_presentation_tool import SchedPresentationTool
-from secrets import SCHED_API_KEY
+# from secrets import SCHED_API_KEY
 
 
 def create_jekyll_posts(post_tool, json_data, connect_code):
