@@ -9,7 +9,7 @@ from sched_data_interface import SchedDataInterface
 from connect_json_updater import ConnectJSONUpdater
 from jekyll_post_tool import JekyllPostTool
 from sched_presentation_tool import SchedPresentationTool
-from secrets import SCHED_API_KEY
+# from secrets import SCHED_API_KEY
 
 
 def create_jekyll_posts(post_tool, json_data, connect_code):
@@ -153,8 +153,8 @@ def generate_images(social_image_generator, json_data):
 class AutomationContainer:
     def __init__(self, args):
         # Instatiate the ScehdDataInterfa   ce which is used by other modules for the data source
-        self.sched_data = SchedDataInterface(
-            "https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "SAN19")
+        # self.sched_data = SchedDataInterface(
+        #     "https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "SAN19")
         self.args = args
         self.main(args)
 
@@ -163,29 +163,38 @@ class AutomationContainer:
 
         print("Linaro Connect Automation Container")
 
-        data_interface = SchedDataInterface(
-            "https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "SAN19")
-        json_data = data_interface.getSessionsData()
-        print(json_data)
+        # data_interface = SchedDataInterface(
+        #     "https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "SAN19")
+        # json_data = data_interface.getSessionsData()
+        # print(json_data)
         # Determine the results of the args
         # Build Jekyll Markdown posts for Connect sessions
         print(args)
-        if args.jekyll_posts:
-            post_tool = JekyllPostTool(
-                "https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "san19/")
-            create_jekyll_posts(post_tool, json_data, "SAN19")
-        if args.social_images:
-            print("Generating social media share images")
-            social_image_generator = SocialImageGenerator(
-                {"output": "output", "template": "assets/templates/san19-placeholder.jpg"})
-            generate_images(social_image_generator, json_data)
-        if args.update_json:
-            json_updater = ConnectJSONUpdater(
-                "static-linaro-org", "connect/san19/presentations/", "connect/san19/videos/", "connect/san19/resources.json")
-            json_updater.update()
-        if args.upload_presentations:
-            upload_presentations = SchedPresentationTool(
-                "https://linaroconnectsandiego.sched.com", "san19")
+        # if args.jekyll_posts:
+        #     post_tool = JekyllPostTool(
+        #         "https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "san19/")
+        #     create_jekyll_posts(post_tool, json_data, "SAN19")
+        if args.upload_video:
+            if args.uid:
+                session_id = args.uid
+                print("Uploading video for {} to YouTube".format(session_id))
+                print("Uploaded!")
+            else:
+                print("Please provide the session id e.g -u BUD20-101")
+        if args.daily_tasks:
+            print("Daily Connect Automation Tasks starting...")
+        # if args.social_images:
+        #     print("Generating social media share images")
+        #     social_image_generator = SocialImageGenerator(
+        #         {"output": "output", "template": "assets/templates/san19-placeholder.jpg"})
+        #     generate_images(social_image_generator, json_data)
+        # if args.update_json:
+        #     json_updater = ConnectJSONUpdater(
+        #         "static-linaro-org", "connect/san19/presentations/", "connect/san19/videos/", "connect/san19/resources.json")
+        #     json_updater.update()
+        # if args.upload_presentations:
+        #     upload_presentations = SchedPresentationTool(
+        #         "https://linaroconnectsandiego.sched.com", "san19")
 
 
 if __name__ == '__main__':
@@ -193,14 +202,18 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--sched-url', help='Specify the Sched.com URL')
     parser.add_argument(
         '-u', '--uid', help='Specific the Unique ID for the Linaro Connect event i.e. SAN19')
-    parser.add_argument('--social-images', action='store_true',
-                        help='If specified then the Social Media Share images are generated.')
-    parser.add_argument('--upload-presentations', action='store_true',
-                        help='If specified then presentations are uploaded.')
-    parser.add_argument('--jekyll-posts', action='store_true',
-                        help='If specified Jekyll Posts are generated based on the Sched session data.')
-    parser.add_argument('--update-json', action='store_true',
-                        help='If specified the Resources.json file is updated in S3')
+    # parser.add_argument('--social-images', action='store_true',
+    #                     help='If specified then the Social Media Share images are generated.')
+    # parser.add_argument('--upload-presentations', action='store_true',
+    #                     help='If specified then presentations are uploaded.')
+    # parser.add_argument('--jekyll-posts', action='store_true',
+    #                     help='If specified Jekyll Posts are generated based on the Sched session data.')
+    parser.add_argument('--upload-video', action='store_true',
+                        help='If specified, the video upload method is executed. Requires a -u arg with the session id.')
+    parser.add_argument('--daily-tasks', action='store_true',
+                        help='If specified, the daily Connect automation tasks are run.')
+    # parser.add_argument('--update-json', action='store_true',
+    #                     help='If specified the Resources.json file is updated in S3')
     parser.add_argument('-o', '--output', nargs='?', default=None,
                         help='Specify the output directory for storing images and other output')
     args = parser.parse_args()
