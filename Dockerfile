@@ -21,6 +21,7 @@ RUN pip3 install \
  git+https://github.com/linaro-marketing/linaro_connect_resources_updater.git@master \
  git+https://github.com/linaro-marketing/SchedDataInterface.git@master \
  git+https://github.com/linaro-marketing/SocialMediaImageGenerator.git \
+ git+https://github.com/linaro-marketing/connect_youtube_uploader.git \
  git+https://github.com/linaro-marketing/SchedPresentationTool.git
 
 WORKDIR /app
@@ -29,5 +30,3 @@ RUN chmod +x /app/*
 
 
 ENV ENV="/app:${PATH}"
-
-ENTRYPOINT [ "/app/main.py" ]
