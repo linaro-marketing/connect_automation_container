@@ -10,30 +10,9 @@ from sched_data_interface import SchedDataInterface
 from connect_json_updater import ConnectJSONUpdater
 from jekyll_post_tool import JekyllPostTool
 from sched_presentation_tool import SchedPresentationTool
+from connect_youtube_uploader import ConnectYoutubeUploader
 
-# if args.jekyll_posts:
-#     post_tool = JekyllPostTool(
-#         "https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "san19/")
-#     create_jekyll_posts(post_tool, json_data, "SAN19")
-# data_interface = SchedDataInterface(
-#     "https://linaroconnectsandiego.sched.com", SCHED_API_KEY, "SAN19")
-# json_data = data_interface.getSessionsData()
-# print(json_data)
-# Determine the results of the args
-# Build Jekyll Markdown posts for Connect sessions
-# if args.social_images:
-#     print("Generating social media share images")
-#     social_image_generator = SocialImageGenerator(
-#         {"output": "output", "template": "assets/templates/san19-placeholder.jpg"})
-#     generate_images(social_image_generator, json_data)
-# if args.update_json:
-#     json_updater = ConnectJSONUpdater(
-#         "static-linaro-org", "connect/san19/presentations/", "connect/san19/videos/", "connect/san19/resources.json")
-#     json_updater.update()
-# if args.upload_presentations:
-#     upload_presentations = SchedPresentationTool(
-#         "https://linaroconnectsandiego.sched.com", "san19")
-
+SECRETS_FILE_NAME = "client_secret_366864391624-r9itbj1gr1s08st22nknlgvemt056auv.apps.googleusercontent.com.json"
 
 def create_jekyll_posts(post_tool, json_data, connect_code):
 
@@ -177,17 +156,21 @@ class AutomationContainer:
     def __init__(self, args):
         self.args = args
         self.accepted_variables = [
-            "bamboo_sched_password", "bamboo_sched_url", "bamboo_connect_uid"]
+            "bamboo_sched_password",
+            "bamboo_sched_url",
+            "bamboo_connect_uid",
+            "bamboo_working_directory",
+            "bamboo_s3_session_id"]
         self.environment_variables = self.get_environment_variables(
             self.accepted_variables)
         if (self.environment_variables["bamboo_sched_url"] and
             self.environment_variables["bamboo_sched_password"] and
-             self.environment_variables["bamboo_connect_uid"]):
+                self.environment_variables["bamboo_connect_uid"]):
             # Instantiate the SchedDataInterface which is used by other modules for the data source
             self.sched_data_interface = SchedDataInterface(
                 self.environment_variables["bamboo_sched_url"],
                 self.environment_variables["bamboo_sched_password"],
-                 self.environment_variables["bamboo_connect_uid"])
+                self.environment_variables["bamboo_connect_uid"])
             self.main()
         else:
             print(
@@ -197,16 +180,12 @@ class AutomationContainer:
         """Takes the argparse arguments as input and starts scripts"""
 
         print("Linaro Connect Automation Container")
-        json_data = self.sched_data_interface.getSessionsData()
-        print("Data for {} sessions successfully pulled from Sched.com".format(len(json_data)))
         if self.args.upload_video:
-            if self.args.uid:
-                session_id = self.args.uid
-                self.upload_video(session_id)
-            else:
-                print("Please provide the session id e.g -u BUD20-101")
-        if self.args.daily_tasks:
+            self.upload_video(self.environment_variables["bamboo_s3_session_id"])
+        elif self.args.daily_tasks:
             self.daily_tasks()
+        else:
+            print("Please provide either the --upload-video or --daily-tasks flag ")
 
     def get_environment_variables(self, accepted_variables):
         """Gets an environment variables that have been set i.e bamboo_sched_password"""
@@ -219,13 +198,35 @@ class AutomationContainer:
 
     def upload_video(self, session_id):
         """Handles the upload of a video"""
-        print("Uploading video for {} to YouTube".format(session_id))
-        print("Uploaded!")
+        if (self.environment_variables["bamboo_sched_url"] and
+            self.environment_variables["bamboo_sched_password"] and
+            self.environment_variables["bamboo_working_directory"] and
+            self.environment_variables["bamboo_s3_session_id"] and
+                self.environment_variables["bamboo_connect_uid"]):
+            uploader = ConnectYoutubeUploader(self.environment_variables["bamboo_working_directory"], SECRETS_FILE_NAME)
+            # json_updater = ConnectJSONUpdater(
+            #             "static-linaro-org", "connect/san19/presentations/", "connect/san19/videos/", "connect/san19/resources.json")
+            # json_updater.update()
+            print("Uploading video for {} to YouTube".format(session_id))
+            print("Uploaded!")
+        else:
+            print("You're missing one of the required environment variables bamboo_sched_url, bamboo_sched_password, bamboo_connect_uid, bamboo_youtube_client_secret, bamboo_s3_session_id")
 
     def daily_tasks(self):
         """Handles the running of daily_tasks"""
         print("Daily Connect Automation Tasks starting...")
-
+        ## Get the Sched Sessions data.
+        json_data = self.sched_data_interface.getSessionsData()
+        # print("Creating Jekyll Posts...")
+        # post_tool = JekyllPostTool(
+        #     self.environment_variables["bamboo_sched_password"], self.environment_variables["bamboo_sched_password"], self.environment_variables["bamboo_connect_uid"] + "/")
+        # create_jekyll_posts(post_tool, json_data, self.environment_variables["bamboo_connect_uid"])
+        # print("Generating Social Media Share Images...")
+        # social_image_generator = SocialImageGenerator(
+        #     {"output": "output", "template": "assets/templates/san19-placeholder.jpg"})
+        # generate_images(social_image_generator, json_data)
+        # print("Collecting Presentations from Sched...")
+        # SchedPresentationTool(self.environment_variables["bamboo_sched_password"], "san19")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Connect Automation")
