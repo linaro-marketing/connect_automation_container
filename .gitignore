@@ -1,4 +1,5 @@
 venv/
 secrets.py
+work_dir
 assets/images/*
 !assets/images/placeholder.jpg
