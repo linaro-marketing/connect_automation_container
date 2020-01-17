@@ -30,3 +30,4 @@ RUN chmod +x /app/*
 
 
 ENV ENV="/app:${PATH}"
+
