@@ -202,8 +202,9 @@ class AutomationContainer:
             self.environment_variables["bamboo_sched_password"] and
             self.environment_variables["bamboo_working_directory"] and
             self.environment_variables["bamboo_s3_session_id"] and
-                self.environment_variables["bamboo_connect_uid"]):
-            uploader = ConnectYoutubeUploader(self.environment_variables["bamboo_working_directory"], SECRETS_FILE_NAME)
+            self.environment_variables["bamboo_connect_uid"]):
+            secrets_path = "{}{}".format(self.environment_variables["bamboo_working_directory"], "/")
+            uploader = ConnectYoutubeUploader(secrets_path, SECRETS_FILE_NAME)
             # json_updater = ConnectJSONUpdater(
             #             "static-linaro-org", "connect/san19/presentations/", "connect/san19/videos/", "connect/san19/resources.json")
             # json_updater.update()
