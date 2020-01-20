@@ -45,9 +45,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     && dpkg-reconfigure --frontend=noninteractive locales && \
     apt-get install -y ${EPHEMERAL_UNVERSIONED_PACKAGES} \
     && \
-# This should be in a pipenv
     pip3 install -r /tmp/requirements.txt \
-# Versions should be specified by tags or commits
+# FIXME: Versions should be specified by tags or commits
     git+https://github.com/linaro-marketing/JekyllPostTool.git@master \
     git+https://github.com/linaro-marketing/linaro_connect_resources_updater.git@master \
     git+https://github.com/linaro-marketing/SchedDataInterface.git@master \
