@@ -23,8 +23,6 @@ ENV LANG en_US.UTF-8
 # FIXME: Python packages should be in a pipenv
 COPY requirements.txt /tmp/
 
-# Required by Perl
-# COPY locale /etc/default/locale
 
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
@@ -32,44 +30,38 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     LANG=C \
     LANGUAGE=$LANG \
     LC_ALL=$LANG \
-    apt-get install -y --no-install-recommends \
-    ${UNVERSIONED_PACKAGES}
-
-RUN echo "LC_ALL=${LANG}" >> /etc/environment && \
+# Setup locale
+    apt-get install -y --no-install-recommends locales \
+    && \
+    echo "LC_ALL=${LANG}" >> /etc/environment && \
     echo "${LANG} UTF-8" >> /etc/locale.gen && \
     echo "LANG=${LANG}" >> /etc/default/locale && \
-    # echo "LC_ALL=${LANG}" >> /etc/default/locale && \
     echo "LANG=${LANG}" > /etc/locale.conf && \
     locale-gen ${LANG} && \
     export LANG=${LANG} && \
     export LANGUAGE=${LANG} && \
-    export LC_ALL=${LANG}
-
-
-# RUN update-locale LANG=en_US.UTF-8
-    # && \
-RUN export DEBIAN_FRONTEND=noninteractive && \
+    export LC_ALL=${LANG} \
+    && \
+    export DEBIAN_FRONTEND=noninteractive && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
 # Install temporary packages
     ${EPHEMERAL_UNVERSIONED_PACKAGES} \
     && dpkg-reconfigure --frontend=noninteractive locales && \
-    apt-get install -y ${EPHEMERAL_UNVERSIONED_PACKAGES}
-
-
+    apt-get install -y ${EPHEMERAL_UNVERSIONED_PACKAGES} \
+    && \
 # This should be in a pipenv
-RUN pip3 install -r /tmp/requirements.txt \
+    pip3 install -r /tmp/requirements.txt \
 # Versions should be specified by tags or commits
     git+https://github.com/linaro-marketing/JekyllPostTool.git@master \
     git+https://github.com/linaro-marketing/linaro_connect_resources_updater.git@master \
     git+https://github.com/linaro-marketing/SchedDataInterface.git@master \
     git+https://github.com/linaro-marketing/SocialMediaImageGenerator.git \
     git+https://github.com/linaro-marketing/connect_youtube_uploader.git \
-    git+https://github.com/linaro-marketing/SchedPresentationTool.git
-
-
+    git+https://github.com/linaro-marketing/SchedPresentationTool.git \
+    && \
 # Clean up package cache in this layer
-RUN apt-get --purge remove -y \
+    apt-get --purge remove -y \
 # Uninstall temporary packages
     ${EPHEMERAL_UNVERSIONED_PACKAGES} && \
 # Remove dependencies which are no longer required
@@ -88,6 +80,7 @@ RUN apt-get --purge remove -y \
 
 WORKDIR /app
 COPY . /app
+# Correct permissions in git repo instead!
 RUN chmod +x /app/*
 
 
