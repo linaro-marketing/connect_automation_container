@@ -2,11 +2,6 @@
 ARG UBUNTU_VERSION=18.04
 FROM ubuntu:${UBUNTU_VERSION}
 
-# Software packages, any version, remain installed
-ENV UNVERSIONED_PACKAGES \
-# Required by Perl
- locales
-
 # Software packages, any version, unavailable after `docker build`
 ENV EPHEMERAL_UNVERSIONED_PACKAGES \
 # The automation runs under the Python 3.x interpreter
@@ -30,7 +25,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     LANG=C \
     LANGUAGE=$LANG \
     LC_ALL=$LANG \
-# Setup locale
+# Setup locale, required by Perl
     apt-get install -y --no-install-recommends locales \
     && \
     echo "LC_ALL=${LANG}" >> /etc/environment && \
@@ -42,10 +37,10 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     export LANGUAGE=${LANG} && \
     export LC_ALL=${LANG} \
     && \
+# Install temporary packages
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
-# Install temporary packages
     ${EPHEMERAL_UNVERSIONED_PACKAGES} \
     && dpkg-reconfigure --frontend=noninteractive locales && \
     apt-get install -y ${EPHEMERAL_UNVERSIONED_PACKAGES} \
