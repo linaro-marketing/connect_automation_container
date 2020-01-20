@@ -38,8 +38,6 @@ docker run\
  --rm\
  -i\
  -t\
- -v /etc/group:/etc/group:ro\
- -v /etc/passwd:/etc/passwd:ro\
  -u=$(id -u):$(id -g)\
  --name connect-automation-container\
  "linaroits/connect-automation:$( git rev-parse --short HEAD )"\
