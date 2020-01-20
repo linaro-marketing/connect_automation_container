@@ -73,10 +73,10 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     /var/lib/apt/lists/*
 
 
+# Should map user for this
 WORKDIR /app
-COPY . /app
-# Correct permissions in git repo instead!
-RUN chmod +x /app/*
+COPY main.py /app
+COPY assets /app/assets
 
 
 ENV ENV="/app:${PATH}"
