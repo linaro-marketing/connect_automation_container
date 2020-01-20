@@ -2,11 +2,14 @@
 ARG UBUNTU_VERSION=18.04
 FROM ubuntu:${UBUNTU_VERSION}
 
+# Software packages, any version, available after `docker build`
+ENV UNVERSIONED_PACKAGES \
+# The automation runs under the Python 3.x interpreter
+ python3
+
 # Software packages, any version, unavailable after `docker build`
 ENV EPHEMERAL_UNVERSIONED_PACKAGES \
-# The automation runs under the Python 3.x interpreter
- python3 \
-# and uses `pip` for installation
+# Uses `pip` for installation
  python3-pip \
  python3-setuptools \
  python3-wheel \
@@ -37,13 +40,13 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     export LANGUAGE=${LANG} && \
     export LC_ALL=${LANG} \
     && \
+    dpkg-reconfigure --frontend=noninteractive locales && \
 # Install temporary packages
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get upgrade -y && \
     apt-get install -y --no-install-recommends \
+    ${UNVERSIONED_PACKAGES} \
     ${EPHEMERAL_UNVERSIONED_PACKAGES} \
-    && dpkg-reconfigure --frontend=noninteractive locales && \
-    apt-get install -y ${EPHEMERAL_UNVERSIONED_PACKAGES} \
     && \
     pip3 install -r /tmp/requirements.txt \
 # FIXME: Versions should be specified by tags or commits
