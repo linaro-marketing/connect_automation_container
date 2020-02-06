@@ -41,14 +41,20 @@ def create_jekyll_posts(post_tool, json_data, connect_code):
 def generate_images(social_image_generator, json_data):
 
     for session in json_data.values():
-        for speaker in session["speakers"]:
-            speaker_avatar_url = speaker["avatar"]
-            if len(speaker_avatar_url) < 3:
-                speaker["image"] = "placeholder.jpg"
-            else:
-                file_name = social_image_generator.grab_photo(
-                    speaker_avatar_url, slugify(speaker["name"]))
-                speaker["image"] = file_name
+        try:
+            for speaker in session["speakers"]:
+                speaker_avatar_url = speaker["avatar"]
+                if len(speaker_avatar_url) < 3:
+                    speaker_image = "placeholder.jpg"
+                else:
+                    file_name = social_image_generator.grab_photo(
+                        speaker_avatar_url, slugify(speaker["name"]))
+                    speaker_image = file_name#
+            session_speakers = session["speakers"][0]["name"]
+        except Exception as e:
+            print("{} has no speakers".format(session["name"]))
+            speaker_image = "placeholder.jpg"
+            session_speakers = "TBC"
         # speakers_list = session["speakers"]
         # Create the image options dictionary
         image_options = {
@@ -64,7 +70,7 @@ def generate_images(social_image_generator, json_data):
                             "x": 820,
                             "y": 80
                         },
-                        "image_name": session["speakers"][0]["image"],
+                        "image_name": speaker_image,
                         "circle": "True"
                     }
                 ],
@@ -73,7 +79,7 @@ def generate_images(social_image_generator, json_data):
                         "multiline": "True",
                         "centered": "True",
                         "wrap_width": 28,
-                        "value": "test",
+                        "value": session_speakers,
                         "position": {
                             "x": [920, 970],
                             "y": 400
@@ -130,7 +136,7 @@ def generate_images(social_image_generator, json_data):
                         "multiline": "True",
                         "centered": "False",
                         "wrap_width": 28,
-                        "value": session["name"],
+                        "value": session["session_title"],
                         "position": {
                             "x": 80,
                             "y": 440
@@ -222,10 +228,10 @@ class AutomationContainer:
         # post_tool = JekyllPostTool(
         #     self.environment_variables["bamboo_sched_password"], self.environment_variables["bamboo_sched_password"], self.environment_variables["bamboo_connect_uid"] + "/")
         # create_jekyll_posts(post_tool, json_data, self.environment_variables["bamboo_connect_uid"])
-        # print("Generating Social Media Share Images...")
-        # social_image_generator = SocialImageGenerator(
-        #     {"output": "output", "template": "assets/templates/san19-placeholder.jpg"})
-        # generate_images(social_image_generator, json_data)
+        print("Generating Social Media Share Images...")
+        social_image_generator = SocialImageGenerator(
+            {"output": "output", "template": "assets/templates/bud20-placeholder.jpg"})
+        generate_images(social_image_generator, json_data)
         # print("Collecting Presentations from Sched...")
         # SchedPresentationTool(self.environment_variables["bamboo_sched_password"], "san19")
 
