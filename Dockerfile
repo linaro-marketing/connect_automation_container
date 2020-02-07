@@ -77,9 +77,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 
 # Should map user for this
 WORKDIR /app
-COPY main.py /app
-COPY assets /app/assets
-
+COPY app /app
 
 ENV ENV="/app:${PATH}"
-
