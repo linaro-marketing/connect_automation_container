@@ -14,11 +14,6 @@ from connect_youtube_uploader import ConnectYoutubeUploader
 
 SECRETS_FILE_NAME = "client_secret_366864391624-r9itbj1gr1s08st22nknlgvemt056auv.apps.googleusercontent.com.json"
 
-
-def create_new_resources_json_file(json_data):
-    for session in json_data.values():
-        print(session["session_id"])
-
 def create_jekyll_posts(post_tool, json_data, connect_code):
 
     for session in json_data.values():
