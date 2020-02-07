@@ -28,6 +28,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     LANG=C \
     LANGUAGE=$LANG \
     LC_ALL=$LANG \
+# Install the git cli
+    apt install -y git \
+    && \
 # Setup locale, required by Perl
     apt-get install -y --no-install-recommends locales \
     && \
