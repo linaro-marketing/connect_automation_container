@@ -14,6 +14,11 @@ from connect_youtube_uploader import ConnectYoutubeUploader
 
 SECRETS_FILE_NAME = "client_secret_366864391624-r9itbj1gr1s08st22nknlgvemt056auv.apps.googleusercontent.com.json"
 
+
+def create_new_resources_json_file(json_data):
+    for session in json_data.values():
+        print(session["session_id"])
+
 def create_jekyll_posts(post_tool, json_data, connect_code):
 
     for session in json_data.values():
@@ -21,10 +26,14 @@ def create_jekyll_posts(post_tool, json_data, connect_code):
             "path": "/assets/images/featured-images/{}/{}.png".format(connect_code.lower(), session["session_id"]),
                     "featured": "true"
         }
+        try:
+            speakers = session["speakers"]
+        except Exception as e:
+            speakers = "None"
         post_frontmatter = {
             "title": session["session_id"] + " - " + session["name"],
             "session_id": session["session_id"],
-            "session_speakers": session["speakers"],
+            "session_speakers": speakers,
             # "description": "{}".format(session["abstract"]).replace("'", ""),
             "image": session_image,
             "tags": session["event_type"],
@@ -41,14 +50,19 @@ def create_jekyll_posts(post_tool, json_data, connect_code):
 def generate_images(social_image_generator, json_data):
 
     for session in json_data.values():
-        for speaker in session["speakers"]:
-            speaker_avatar_url = speaker["avatar"]
+        try:
+            speaker_avatar_url = session["speakers"][0]["avatar"]
             if len(speaker_avatar_url) < 3:
-                speaker["image"] = "placeholder.jpg"
+                speaker_image = "placeholder.jpg"
             else:
                 file_name = social_image_generator.grab_photo(
-                    speaker_avatar_url, slugify(speaker["name"]))
-                speaker["image"] = file_name
+                    speaker_avatar_url, slugify(session["speakers"][0]["name"]))
+                speaker_image = file_name
+            session_speakers = session["speakers"][0]["name"]
+        except Exception as e:
+            print("{} has no speakers".format(session["name"]))
+            speaker_image = "placeholder.jpg"
+            session_speakers = "TBC"
         # speakers_list = session["speakers"]
         # Create the image options dictionary
         image_options = {
@@ -64,7 +78,7 @@ def generate_images(social_image_generator, json_data):
                             "x": 820,
                             "y": 80
                         },
-                        "image_name": session["speakers"][0]["image"],
+                        "image_name": speaker_image,
                         "circle": "True"
                     }
                 ],
@@ -73,7 +87,7 @@ def generate_images(social_image_generator, json_data):
                         "multiline": "True",
                         "centered": "True",
                         "wrap_width": 28,
-                        "value": "test",
+                        "value": session_speakers,
                         "position": {
                             "x": [920, 970],
                             "y": 400
@@ -130,7 +144,7 @@ def generate_images(social_image_generator, json_data):
                         "multiline": "True",
                         "centered": "False",
                         "wrap_width": 28,
-                        "value": session["name"],
+                        "value": session["session_title"],
                         "position": {
                             "x": 80,
                             "y": 440
@@ -218,14 +232,16 @@ class AutomationContainer:
         print("Daily Connect Automation Tasks starting...")
         ## Get the Sched Sessions data.
         json_data = self.sched_data_interface.getSessionsData()
-        # print("Creating Jekyll Posts...")
-        # post_tool = JekyllPostTool(
-        #     self.environment_variables["bamboo_sched_password"], self.environment_variables["bamboo_sched_password"], self.environment_variables["bamboo_connect_uid"] + "/")
-        # create_jekyll_posts(post_tool, json_data, self.environment_variables["bamboo_connect_uid"])
-        # print("Generating Social Media Share Images...")
-        # social_image_generator = SocialImageGenerator(
-        #     {"output": "output", "template": "assets/templates/san19-placeholder.jpg"})
-        # generate_images(social_image_generator, json_data)
+        print("Creating new resources.json file...")
+        create_new_resources_json_file(json_data)
+        print("Creating Jekyll Posts...")
+        post_tool = JekyllPostTool(
+            {"output": "work_dir/posts/"}, verbose=True)
+        create_jekyll_posts(post_tool, json_data, self.environment_variables["bamboo_connect_uid"])
+        print("Generating Social Media Share Images...")
+        social_image_generator = SocialImageGenerator(
+            {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
+        generate_images(social_image_generator, json_data)
         # print("Collecting Presentations from Sched...")
         # SchedPresentationTool(self.environment_variables["bamboo_sched_password"], "san19")
 
