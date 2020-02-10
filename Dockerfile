@@ -73,9 +73,12 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     /var/log/* \
     /var/lib/apt/lists/*
 
+# Install git cli and ImageMagick
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y git
+    apt-get install -y git && \
+    apt-get install -y build-essential && \
+    apt-get install -y imagemagick
 
 # Should map user for this
 WORKDIR /app
