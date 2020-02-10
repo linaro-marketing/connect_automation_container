@@ -21,16 +21,12 @@ ENV LANG en_US.UTF-8
 # FIXME: Python packages should be in a pipenv
 COPY requirements.txt /tmp/
 
-
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     # Temporarily set `C` for locale, as it's the only one available
     LANG=C \
     LANGUAGE=$LANG \
     LC_ALL=$LANG \
-# Install the git cli
-    apt install -y git \
-    && \
 # Setup locale, required by Perl
     apt-get install -y --no-install-recommends locales \
     && \
@@ -77,6 +73,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     /var/log/* \
     /var/lib/apt/lists/*
 
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y git
 
 # Should map user for this
 WORKDIR /app
