@@ -4,6 +4,8 @@ import argparse
 import datetime
 import os
 from slugify import slugify
+import time
+
 
 from social_image_generator import SocialImageGenerator
 from sched_data_interface import SchedDataInterface
@@ -14,21 +16,34 @@ from connect_youtube_uploader import ConnectYoutubeUploader
 
 SECRETS_FILE_NAME = "client_secret_366864391624-r9itbj1gr1s08st22nknlgvemt056auv.apps.googleusercontent.com.json"
 
-def create_jekyll_posts(post_tool, json_data, connect_code):
+def create_jekyll_posts(post_tool, cdn_url, json_data, connect_code):
 
     for session in json_data.values():
         session_image = {
-            "path": "/assets/images/featured-images/{}/{}.png".format(connect_code.lower(), session["session_id"]),
-                    "featured": "true"
+            "path": "{}/connect/{}/images/{}.png".format(cdn_url, connect_code.lower(), session["session_id"]),
+            "featured": "true"
         }
         try:
             speakers = session["speakers"]
         except Exception as e:
-            speakers = "None"
+            speakers = None
+        # Get the list of speakers in the correct format for the Connect Jekyll website
+        new_speakers = []
+        if speakers:
+            for speaker in speakers:
+                new_speaker = {
+                    "speaker_name": speaker["name"],
+                    "speaker_position": speaker["position"],
+                    "speaker_company": speaker["company"],
+                    "speaker_image": speaker["avatar"],
+                    "speaker_bio": speaker["about"],
+                    "speaker_role": speaker["role"]
+                }
+                new_speakers.append(new_speaker)
         post_frontmatter = {
             "title": session["session_id"] + " - " + session["name"],
             "session_id": session["session_id"],
-            "session_speakers": speakers,
+            "session_speakers": new_speakers,
             # "description": "{}".format(session["abstract"]).replace("'", ""),
             "image": session_image,
             "tags": session["event_type"],
@@ -163,6 +178,9 @@ def generate_images(social_image_generator, json_data):
 
 class AutomationContainer:
     def __init__(self, args):
+        # Define the CDN URL for Connect static resources
+        self.cdn_url = "https://static.linaro.org"
+        # Args
         self.args = args
         self.accepted_variables = [
             "bamboo_sched_password",
@@ -180,6 +198,10 @@ class AutomationContainer:
                 self.environment_variables["bamboo_sched_url"],
                 self.environment_variables["bamboo_sched_password"],
                 self.environment_variables["bamboo_connect_uid"])
+                ## Get the Sched Sessions data.
+            self.json_data = self.sched_data_interface.getSessionsData()
+            self.s3_interface = ConnectJSONUpdater(
+                "static-linaro-org", "connect/bud20/", self.json_data)
             self.main()
         else:
             print(
@@ -195,6 +217,15 @@ class AutomationContainer:
             self.daily_tasks()
         else:
             print("Please provide either the --upload-video or --daily-tasks flag ")
+
+
+    def upload_files_to_s3(self, folder, s3_prefix):
+        """Upload the files in the specified folder to s3"""
+        for filename in os.listdir(folder):
+            if filename.endswith(".png"):
+                print("*", end="", flush=True)
+                self.s3_interface.upload_file_to_s3(
+                    os.path.join(folder, filename), s3_prefix + filename)
 
     def get_environment_variables(self, accepted_variables):
         """Gets an environment variables that have been set i.e bamboo_sched_password"""
@@ -224,21 +255,28 @@ class AutomationContainer:
 
     def daily_tasks(self):
         """Handles the running of daily_tasks"""
+        start_time = time.time()
         print("Daily Connect Automation Tasks starting...")
-        ## Get the Sched Sessions data.
-        json_data = self.sched_data_interface.getSessionsData()
-        print("Creating new resources.json file...")
-        create_new_resources_json_file(json_data)
         print("Creating Jekyll Posts...")
         post_tool = JekyllPostTool(
             {"output": "work_dir/posts/"}, verbose=True)
-        create_jekyll_posts(post_tool, json_data, self.environment_variables["bamboo_connect_uid"])
+        create_jekyll_posts(post_tool, self.cdn_url, self.json_data, self.environment_variables["bamboo_connect_uid"])
+        print("Creating GitHub pull request with changed Jekyll posts...")
         print("Generating Social Media Share Images...")
         social_image_generator = SocialImageGenerator(
             {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
-        generate_images(social_image_generator, json_data)
-        # print("Collecting Presentations from Sched...")
-        # SchedPresentationTool(self.environment_variables["bamboo_sched_password"], "san19")
+        generate_images(social_image_generator, self.json_data)
+        print("Uploading generated social media share images to s3...")
+        json_updater = ConnectJSONUpdater(
+                    "static-linaro-org", "connect/{}/".format(self.environment_variables["bamboo_connect_uid"].lower()), self.json_data)
+        json_updater.update()
+        self.upload_files_to_s3("/app/work_dir/images/", "/connect/{}/images/".format(
+            self.environment_variables["bamboo_connect_uid"]))
+        print("Downloading presentations from sched...")
+        print("Uploading presentations to s3...")
+        print("Updating the resources.json file...")
+        end_time = time.time()
+        print("Daily tasks complete in {} seconds.".format(end_time-start_time))
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Connect Automation")
