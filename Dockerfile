@@ -56,6 +56,8 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     git+https://github.com/linaro-marketing/connect_youtube_uploader.git \
     git+https://github.com/linaro-marketing/SchedPresentationTool.git \
     && \
+# Install the AWS CLI
+    pip3 install awscli && \
 # Clean up package cache in this layer
     apt-get --purge remove -y \
 # Uninstall temporary packages
@@ -73,14 +75,23 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     /var/log/* \
     /var/lib/apt/lists/*
 
-# Install git cli and ImageMagick
+# Install ImageMagick and git cli
 RUN apt-get update && \
     apt-get upgrade -y && \
     apt-get install -y git && \
-    apt-get install -y build-essential && \
     apt-get install -y imagemagick
 
-# Should map user for this
+# Add a new user with home directory
+RUN useradd -ms /bin/bash connect
+
+# Create the .aws folder and copy over base config
+RUN mkdir /home/connect/.aws/
+COPY aws_config /home/connect/.aws/config
+RUN chown -R connect:connect /home/connect
+
+# Switch to the Connect User
+USER connect
+
 WORKDIR /app
 COPY app /app
 
