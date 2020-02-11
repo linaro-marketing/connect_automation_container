@@ -4,9 +4,9 @@ import argparse
 import datetime
 import os
 from slugify import slugify
+import subprocess
 import time
-
-
+import shlex
 from social_image_generator import SocialImageGenerator
 from sched_data_interface import SchedDataInterface
 from connect_json_updater import ConnectJSONUpdater
@@ -15,6 +15,7 @@ from sched_presentation_tool import SchedPresentationTool
 from connect_youtube_uploader import ConnectYoutubeUploader
 
 SECRETS_FILE_NAME = "client_secret_366864391624-r9itbj1gr1s08st22nknlgvemt056auv.apps.googleusercontent.com.json"
+
 
 def create_jekyll_posts(post_tool, cdn_url, json_data, connect_code):
 
@@ -58,6 +59,8 @@ def create_jekyll_posts(post_tool, cdn_url, json_data, connect_code):
 
 
 def generate_images(social_image_generator, json_data):
+
+    print("Generating Social Media Share Images...")
 
     for session in json_data.values():
         try:
@@ -180,8 +183,10 @@ class AutomationContainer:
     def __init__(self, args):
         # Define the CDN URL for Connect static resources
         self.cdn_url = "https://static.linaro.org"
+        self.responsive_image_widths = [300, 800, 1200]
         # Args
         self.args = args
+        self.static_bucket = "static-linaro-org"
         self.accepted_variables = [
             "bamboo_sched_password",
             "bamboo_sched_url",
@@ -198,7 +203,7 @@ class AutomationContainer:
                 self.environment_variables["bamboo_sched_url"],
                 self.environment_variables["bamboo_sched_password"],
                 self.environment_variables["bamboo_connect_uid"])
-                ## Get the Sched Sessions data.
+            # Get the Sched Sessions data.
             self.json_data = self.sched_data_interface.getSessionsData()
             self.s3_interface = ConnectJSONUpdater(
                 "static-linaro-org", "connect/bud20/", self.json_data)
@@ -212,12 +217,12 @@ class AutomationContainer:
 
         print("Linaro Connect Automation Container")
         if self.args.upload_video:
-            self.upload_video(self.environment_variables["bamboo_s3_session_id"])
+            self.upload_video(
+                self.environment_variables["bamboo_s3_session_id"])
         elif self.args.daily_tasks:
             self.daily_tasks()
         else:
             print("Please provide either the --upload-video or --daily-tasks flag ")
-
 
     def upload_files_to_s3(self, folder, s3_prefix):
         """Upload the files in the specified folder to s3"""
@@ -242,16 +247,53 @@ class AutomationContainer:
             self.environment_variables["bamboo_sched_password"] and
             self.environment_variables["bamboo_working_directory"] and
             self.environment_variables["bamboo_s3_session_id"] and
-            self.environment_variables["bamboo_connect_uid"]):
-            secrets_path = "{}{}".format(self.environment_variables["bamboo_working_directory"], "/")
+                self.environment_variables["bamboo_connect_uid"]):
+            secrets_path = "{}{}".format(
+                self.environment_variables["bamboo_working_directory"], "/")
             uploader = ConnectYoutubeUploader(secrets_path, SECRETS_FILE_NAME)
-            # json_updater = ConnectJSONUpdater(
-            #             "static-linaro-org", "connect/san19/presentations/", "connect/san19/videos/", "connect/san19/resources.json")
-            # json_updater.update()
             print("Uploading video for {} to YouTube".format(session_id))
             print("Uploaded!")
         else:
             print("You're missing one of the required environment variables bamboo_sched_url, bamboo_sched_password, bamboo_connect_uid, bamboo_youtube_client_secret, bamboo_s3_session_id")
+
+    def run_command(self, command):
+        # # Use Shlex to split the command for subprocess to handle stdout correctly.
+        split_command = shlex.split(command)
+
+        process = subprocess.Popen(
+            split_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        output, err = process.communicate()
+        decoded_output = output.decode("utf-8")
+        print(decoded_output)
+
+    def generate_responsive_images(self, base_image_directory):
+        print("Resizing social share images...")
+
+        # For each width in widths, generated new JPEG images
+        for width in self.responsive_image_widths:
+            print("Resizing images to {} width...".format(str(width)))
+            if not os.path.exists(base_image_directory + str(width)):
+                os.makedirs(base_image_directory + str(width))
+            # Use mogrify to generate JPG images of different sizes
+            self.run_command(
+                "mogrify -path {1}{0}/ -resize {0} -format jpg {1}*.png".format(str(width), base_image_directory))
+
+    def upload_images_to_s3(self, base_image_directory):
+        """Uploads responsive social media images generated images to s3"""
+
+        print("Uploading generated social media share images to s3...")
+        print("Syncing original PNG images...")
+
+        self.run_command("aws s3 sync {0} s3://{1}/connect/{2}/images/".format(
+            base_image_directory, self.static_bucket, self.environment_variables["bamboo_connect_uid"].lower()))
+
+        print("Uploading ImageMagick resized images...")
+
+        for width in self.responsive_image_widths:
+            print("Syncing {} width images...".format(width))
+            self.run_command(
+                "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.environment_variables["bamboo_connect_uid"].lower(), width))
+            print()
 
     def daily_tasks(self):
         """Handles the running of daily_tasks"""
@@ -260,32 +302,26 @@ class AutomationContainer:
         print("Creating Jekyll Posts...")
         post_tool = JekyllPostTool(
             {"output": "work_dir/posts/"}, verbose=True)
-        create_jekyll_posts(post_tool, self.cdn_url, self.json_data, self.environment_variables["bamboo_connect_uid"])
+        create_jekyll_posts(post_tool, self.cdn_url, self.json_data,
+                            self.environment_variables["bamboo_connect_uid"])
         print("Creating GitHub pull request with changed Jekyll posts...")
-        print("Generating Social Media Share Images...")
         social_image_generator = SocialImageGenerator(
             {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
         generate_images(social_image_generator, self.json_data)
-        print("Uploading generated social media share images to s3...")
-        json_updater = ConnectJSONUpdater(
-                    "static-linaro-org", "connect/{}/".format(self.environment_variables["bamboo_connect_uid"].lower()), self.json_data)
-        json_updater.update()
-        self.upload_files_to_s3("/app/work_dir/images/", "/connect/{}/images/".format(
-            self.environment_variables["bamboo_connect_uid"]))
+        self.generate_responsive_images("/app/work_dir/images/")
+        self.upload_images_to_s3("/app/work_dir/images/")
         print("Downloading presentations from sched...")
         print("Uploading presentations to s3...")
         print("Updating the resources.json file...")
         end_time = time.time()
         print("Daily tasks complete in {} seconds.".format(end_time-start_time))
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Connect Automation")
-    parser.add_argument(
-        '-u', '--uid', help='Specific the Unique ID for the Linaro Connect event i.e. SAN19')
     parser.add_argument('--upload-video', action='store_true',
                         help='If specified, the video upload method is executed. Requires a -u arg with the session id.')
     parser.add_argument('--daily-tasks', action='store_true',
                         help='If specified, the daily Connect automation tasks are run.')
     args = parser.parse_args()
-
     AutomationContainer(args)
