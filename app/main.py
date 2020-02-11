@@ -48,7 +48,7 @@ def create_jekyll_posts(post_tool, cdn_url, json_data, connect_code):
             # "description": "{}".format(session["abstract"]).replace("'", ""),
             "image": session_image,
             "tags": session["event_type"],
-            "categories": [connect_code],
+            "categories": [connect_code.lower()],
             "session_track": session["event_type"],
             "tag": "session",
         }
