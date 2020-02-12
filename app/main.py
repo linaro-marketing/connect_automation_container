@@ -28,6 +28,10 @@ def create_jekyll_posts(post_tool, cdn_url, json_data, connect_code):
             speakers = session["speakers"]
         except Exception as e:
             speakers = None
+        try:
+            description = session["description"]
+        except Exception as e:
+            description = ""
         # Get the list of speakers in the correct format for the Connect Jekyll website
         new_speakers = []
         if speakers:
@@ -45,15 +49,14 @@ def create_jekyll_posts(post_tool, cdn_url, json_data, connect_code):
             "title": session["session_id"] + " - " + session["name"],
             "session_id": session["session_id"],
             "session_speakers": new_speakers,
-            # "description": "{}".format(session["abstract"]).replace("'", ""),
+            "description": description,
             "image": session_image,
             "tags": session["event_type"],
             "categories": [connect_code.lower()],
             "session_track": session["event_type"],
             "tag": "session",
         }
-        post_file_name = datetime.datetime.now().strftime(
-            "%Y-%m-%d") + "-" + session["session_id"].lower() + ".md"
+        post_file_name = session["session_id"].lower() + ".md"
         # Edit posts if file already exists
         post_tool.write_post(post_frontmatter, "", post_file_name)
 
@@ -64,7 +67,7 @@ def generate_images(social_image_generator, json_data):
 
     for session in json_data.values():
         try:
-            speaker_avatar_url = session["speakers"][0]["avatar"]
+            speaker_avatar_url = session["speakers"][0]["avatar"].replace(".320x320px.jpg", "")
             if len(speaker_avatar_url) < 3:
                 speaker_image = "placeholder.jpg"
             else:
@@ -309,10 +312,11 @@ class AutomationContainer:
             {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
         generate_images(social_image_generator, self.json_data)
         self.generate_responsive_images("/app/work_dir/images/")
-        self.upload_images_to_s3("/app/work_dir/images/")
-        print("Downloading presentations from sched...")
-        print("Uploading presentations to s3...")
-        print("Updating the resources.json file...")
+        if self.args.no_upload != True:
+            self.upload_images_to_s3("/app/work_dir/images/")
+        # print("Downloading presentations from sched...")
+        # print("Uploading presentations to s3...")
+        # print("Updating the resources.json file...")
         end_time = time.time()
         print("Daily tasks complete in {} seconds.".format(end_time-start_time))
 
@@ -323,5 +327,7 @@ if __name__ == '__main__':
                         help='If specified, the video upload method is executed. Requires a -u arg with the session id.')
     parser.add_argument('--daily-tasks', action='store_true',
                         help='If specified, the daily Connect automation tasks are run.')
+    parser.add_argument('--no-upload', action='store_true',
+                        help='If specified, assets are not uploaded to s3.')
     args = parser.parse_args()
     AutomationContainer(args)
