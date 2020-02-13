@@ -55,6 +55,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     git+https://github.com/linaro-marketing/SocialMediaImageGenerator.git \
     git+https://github.com/linaro-marketing/connect_youtube_uploader.git \
     git+https://github.com/linaro-marketing/SchedPresentationTool.git \
+    git+https://github.com/linaro-its/vault_auth.git@master \
     && \
 # Install the AWS CLI
     pip3 install awscli && \
