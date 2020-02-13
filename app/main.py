@@ -13,6 +13,7 @@ from connect_json_updater import ConnectJSONUpdater
 from jekyll_post_tool import JekyllPostTool
 from sched_presentation_tool import SchedPresentationTool
 from connect_youtube_uploader import ConnectYoutubeUploader
+import vault_auth
 
 SECRETS_FILE_NAME = "client_secret_366864391624-r9itbj1gr1s08st22nknlgvemt056auv.apps.googleusercontent.com.json"
 
@@ -67,7 +68,8 @@ def generate_images(social_image_generator, json_data):
 
     for session in json_data.values():
         try:
-            speaker_avatar_url = session["speakers"][0]["avatar"].replace(".320x320px.jpg", "")
+            speaker_avatar_url = session["speakers"][0]["avatar"].replace(
+                ".320x320px.jpg", "")
             if len(speaker_avatar_url) < 3:
                 speaker_image = "placeholder.jpg"
             else:
@@ -196,20 +198,21 @@ class AutomationContainer:
             "bamboo_connect_uid",
             "bamboo_working_directory",
             "bamboo_s3_session_id"]
-        self.environment_variables = self.get_environment_variables(
+        self.env = self.get_environment_variables(
             self.accepted_variables)
-        if (self.environment_variables["bamboo_sched_url"] and
-            self.environment_variables["bamboo_sched_password"] and
-                self.environment_variables["bamboo_connect_uid"]):
+        if (self.env["bamboo_sched_url"] and
+            self.env["bamboo_sched_password"] and
+                self.env["bamboo_connect_uid"]):
             # Instantiate the SchedDataInterface which is used by other modules for the data source
             self.sched_data_interface = SchedDataInterface(
-                self.environment_variables["bamboo_sched_url"],
-                self.environment_variables["bamboo_sched_password"],
-                self.environment_variables["bamboo_connect_uid"])
-            # Get the Sched Sessions data.
+                self.env["bamboo_sched_url"],
+                self.env["bamboo_sched_password"],
+                self.env["bamboo_connect_uid"])
             self.json_data = self.sched_data_interface.getSessionsData()
+            # Instantiate the ConnectJSONUpdater module
             self.s3_interface = ConnectJSONUpdater(
-                "static-linaro-org", "connect/bud20/", self.json_data)
+                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data)
+            # Run the main logic method (daily-tasks or upload-video)
             self.main()
         else:
             print(
@@ -221,7 +224,7 @@ class AutomationContainer:
         print("Linaro Connect Automation Container")
         if self.args.upload_video:
             self.upload_video(
-                self.environment_variables["bamboo_s3_session_id"])
+                self.env["bamboo_s3_session_id"])
         elif self.args.daily_tasks:
             self.daily_tasks()
         else:
@@ -244,16 +247,30 @@ class AutomationContainer:
                 found_variables[variable] = variable_check
         return found_variables
 
+    def get_secret_from_vault(self, vault_path, output_file_name):
+        """Used to retrive a secret json file from the linaro-its vault_auth module"""
+
+        secret_output_path = "{}/".format(
+            self.env["bamboo_working_directory"])
+
+        secret_output_full_path = secret_output_path + output_file_name
+
+        if not os.path.isfile(secret_output_full_path):
+            secret = vault_auth.get_vault_secret(vault_path)
+            with open(secret_output_full_path, 'w') as file:
+                file.write(secret)
+        return secret_output_path, output_file_name
+
     def upload_video(self, session_id):
         """Handles the upload of a video"""
-        if (self.environment_variables["bamboo_sched_url"] and
-            self.environment_variables["bamboo_sched_password"] and
-            self.environment_variables["bamboo_working_directory"] and
-            self.environment_variables["bamboo_s3_session_id"] and
-                self.environment_variables["bamboo_connect_uid"]):
-            secrets_path = "{}{}".format(
-                self.environment_variables["bamboo_working_directory"], "/")
-            uploader = ConnectYoutubeUploader(secrets_path, SECRETS_FILE_NAME)
+        if (self.env["bamboo_sched_url"] and
+            self.env["bamboo_sched_password"] and
+            self.env["bamboo_working_directory"] and
+            self.env["bamboo_s3_session_id"] and
+                self.env["bamboo_connect_uid"]):
+            secrets_path, secrets_file_name = self.get_secret_from_vault(
+                "secret/misc/connect_google_secret.json", "youtube_secret.json")
+            uploader = ConnectYoutubeUploader(secrets_path, secrets_file_name)
             print("Uploading video for {} to YouTube".format(session_id))
             print("Uploaded!")
         else:
@@ -288,14 +305,14 @@ class AutomationContainer:
         print("Syncing original PNG images...")
 
         self.run_command("aws s3 sync {0} s3://{1}/connect/{2}/images/".format(
-            base_image_directory, self.static_bucket, self.environment_variables["bamboo_connect_uid"].lower()))
+            base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
 
         print("Uploading ImageMagick resized images...")
 
         for width in self.responsive_image_widths:
             print("Syncing {} width images...".format(width))
             self.run_command(
-                "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.environment_variables["bamboo_connect_uid"].lower(), width))
+                "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
             print()
 
     def daily_tasks(self):
@@ -306,7 +323,7 @@ class AutomationContainer:
         post_tool = JekyllPostTool(
             {"output": "work_dir/posts/"}, verbose=True)
         create_jekyll_posts(post_tool, self.cdn_url, self.json_data,
-                            self.environment_variables["bamboo_connect_uid"])
+                            self.env["bamboo_connect_uid"])
         print("Creating GitHub pull request with changed Jekyll posts...")
         social_image_generator = SocialImageGenerator(
             {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
