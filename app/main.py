@@ -15,174 +15,6 @@ from sched_presentation_tool import SchedPresentationTool
 from connect_youtube_uploader import ConnectYoutubeUploader
 import vault_auth
 
-SECRETS_FILE_NAME = "client_secret_366864391624-r9itbj1gr1s08st22nknlgvemt056auv.apps.googleusercontent.com.json"
-
-
-def create_jekyll_posts(post_tool, cdn_url, json_data, connect_code):
-
-    for session in json_data.values():
-        session_image = {
-            "path": "{}/connect/{}/images/{}.png".format(cdn_url, connect_code.lower(), session["session_id"]),
-            "featured": "true"
-        }
-        try:
-            speakers = session["speakers"]
-        except Exception as e:
-            speakers = None
-        try:
-            description = session["description"]
-        except Exception as e:
-            description = ""
-        # Get the list of speakers in the correct format for the Connect Jekyll website
-        new_speakers = []
-        if speakers:
-            for speaker in speakers:
-                new_speaker = {
-                    "speaker_name": speaker["name"],
-                    "speaker_position": speaker["position"],
-                    "speaker_company": speaker["company"],
-                    "speaker_image": speaker["avatar"],
-                    "speaker_bio": speaker["about"],
-                    "speaker_role": speaker["role"]
-                }
-                new_speakers.append(new_speaker)
-        post_frontmatter = {
-            "title": session["session_id"] + " - " + session["name"],
-            "session_id": session["session_id"],
-            "session_speakers": new_speakers,
-            "description": description,
-            "image": session_image,
-            "tags": session["event_type"],
-            "categories": [connect_code.lower()],
-            "session_track": session["event_type"],
-            "tag": "session",
-        }
-        post_file_name = session["session_id"].lower() + ".md"
-        # Edit posts if file already exists
-        post_tool.write_post(post_frontmatter, "", post_file_name)
-
-
-def generate_images(social_image_generator, json_data):
-
-    print("Generating Social Media Share Images...")
-
-    for session in json_data.values():
-        try:
-            speaker_avatar_url = session["speakers"][0]["avatar"].replace(
-                ".320x320px.jpg", "")
-            if len(speaker_avatar_url) < 3:
-                speaker_image = "placeholder.jpg"
-            else:
-                file_name = social_image_generator.grab_photo(
-                    speaker_avatar_url, slugify(session["speakers"][0]["name"]))
-                speaker_image = file_name
-            session_speakers = session["speakers"][0]["name"]
-        except Exception as e:
-            print("{} has no speakers".format(session["name"]))
-            speaker_image = "placeholder.jpg"
-            session_speakers = "TBC"
-        # speakers_list = session["speakers"]
-        # Create the image options dictionary
-        image_options = {
-            "file_name": session["session_id"],
-            "elements": {
-                "images": [
-                    {
-                        "dimensions": {
-                            "x": 300,
-                            "y": 300
-                        },
-                        "position": {
-                            "x": 820,
-                            "y": 80
-                        },
-                        "image_name": speaker_image,
-                        "circle": "True"
-                    }
-                ],
-                "text": [
-                    {
-                        "multiline": "True",
-                        "centered": "True",
-                        "wrap_width": 28,
-                        "value": session_speakers,
-                        "position": {
-                            "x": [920, 970],
-                            "y": 400
-                        },
-                        "font": {
-                            "size": 32,
-                            "family": "fonts/Lato-Regular.ttf",
-                            "colour": {
-                                "r": 255,
-                                "g": 255,
-                                "b": 255
-                            }
-                        }
-                    },
-                    {
-                        "multiline": "False",
-                        "centered": "False",
-                        "wrap_width": 28,
-                        "value": session["session_id"],
-                        "position": {
-                            "x": 80,
-                            "y": 340
-                        },
-                        "font": {
-                            "size": 48,
-                            "family": "fonts/Lato-Bold.ttf",
-                            "colour": {
-                                "r": 255,
-                                "g": 255,
-                                "b": 255
-                            }
-                        }
-                    },
-                    {
-                        "multiline": "False",
-                        "centered": "False",
-                        "wrap_width": 28,
-                        "value": session["event_type"],
-                        "position": {
-                            "x": 80,
-                            "y": 400
-                        },
-                        "font": {
-                            "size": 28,
-                            "family": "fonts/Lato-Bold.ttf",
-                            "colour": {
-                                "r": 255,
-                                "g": 255,
-                                "b": 255
-                            }
-                        }
-                    },
-                    {
-                        "multiline": "True",
-                        "centered": "False",
-                        "wrap_width": 28,
-                        "value": session["session_title"],
-                        "position": {
-                            "x": 80,
-                            "y": 440
-                        },
-                        "font": {
-                            "size": 48,
-                            "family": "fonts/Lato-Bold.ttf",
-                            "colour": {
-                                "r": 255,
-                                "g": 255,
-                                "b": 255
-                            }
-                        }
-                    }
-                ],
-            }
-        }
-        # Generate the image for each sesssion
-        social_image_generator.create_image(image_options)
-
 
 class AutomationContainer:
     def __init__(self, args):
@@ -320,14 +152,14 @@ class AutomationContainer:
         start_time = time.time()
         print("Daily Connect Automation Tasks starting...")
         print("Creating Jekyll Posts...")
-        post_tool = JekyllPostTool(
+        self.post_tool = JekyllPostTool(
             {"output": "work_dir/posts/"}, verbose=True)
-        create_jekyll_posts(post_tool, self.cdn_url, self.json_data,
-                            self.env["bamboo_connect_uid"])
+        self.create_jekyll_posts()
         print("Creating GitHub pull request with changed Jekyll posts...")
-        social_image_generator = SocialImageGenerator(
+        self.social_image_generator = SocialImageGenerator(
             {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
-        generate_images(social_image_generator, self.json_data)
+        print("Generating Social Media Share Images...")
+        self.generate_images()
         self.generate_responsive_images("/app/work_dir/images/")
         if self.args.no_upload != True:
             self.upload_images_to_s3("/app/work_dir/images/")
@@ -336,6 +168,168 @@ class AutomationContainer:
         # print("Updating the resources.json file...")
         end_time = time.time()
         print("Daily tasks complete in {} seconds.".format(end_time-start_time))
+
+    def create_jekyll_posts(self, post_tool):
+
+        for session in self.json_data.values():
+            session_image = {
+                "path": "{}/connect/{}/images/{}.png".format(self.cdn_url, self.env["bamboo_connect_uid"].lower(), session["session_id"]),
+                "featured": "true"
+            }
+            try:
+                speakers = session["speakers"]
+            except Exception:
+                speakers = None
+            try:
+                description = session["description"]
+            except Exception:
+                description = ""
+            # Get the list of speakers in the correct format for the Connect Jekyll website
+            new_speakers = []
+            if speakers:
+                for speaker in speakers:
+                    new_speaker = {
+                        "speaker_name": speaker["name"],
+                        "speaker_position": speaker["position"],
+                        "speaker_company": speaker["company"],
+                        "speaker_image": speaker["avatar"],
+                        "speaker_bio": speaker["about"],
+                        "speaker_role": speaker["role"]
+                    }
+                    new_speakers.append(new_speaker)
+            post_frontmatter = {
+                "title": session["session_id"] + " - " + session["name"],
+                "session_id": session["session_id"],
+                "session_speakers": new_speakers,
+                "description": description,
+                "image": session_image,
+                "tags": session["event_type"],
+                "categories": [self.env["bamboo_connect_uid"].lower()],
+                "session_track": session["event_type"],
+                "tag": "session",
+            }
+            post_file_name = session["session_id"].lower() + ".md"
+            # Edit posts if file already exists
+            self.post_tool.write_post(post_frontmatter, "", post_file_name)
+
+    def generate_images(self):
+
+        for session in self.json_data.values():
+            try:
+                speaker_avatar_url = session["speakers"][0]["avatar"].replace(
+                    ".320x320px.jpg", "")
+                if len(speaker_avatar_url) < 3:
+                    speaker_image = "placeholder.jpg"
+                else:
+                    file_name = self.social_image_generator.grab_photo(
+                        speaker_avatar_url, slugify(session["speakers"][0]["name"]))
+                    speaker_image = file_name
+                session_speakers = session["speakers"][0]["name"]
+            except Exception:
+                print("{} has no speakers".format(session["name"]))
+                speaker_image = "placeholder.jpg"
+                session_speakers = "TBC"
+
+            # Create the image options dictionary
+            image_options = {
+                "file_name": session["session_id"],
+                "elements": {
+                    "images": [
+                        {
+                            "dimensions": {
+                                "x": 300,
+                                "y": 300
+                            },
+                            "position": {
+                                "x": 820,
+                                "y": 80
+                            },
+                            "image_name": speaker_image,
+                            "circle": "True"
+                        }
+                    ],
+                    "text": [
+                        {
+                            "multiline": "True",
+                            "centered": "True",
+                            "wrap_width": 28,
+                            "value": session_speakers,
+                            "position": {
+                                "x": [920, 970],
+                                "y": 400
+                            },
+                            "font": {
+                                "size": 32,
+                                "family": "fonts/Lato-Regular.ttf",
+                                "colour": {
+                                    "r": 255,
+                                    "g": 255,
+                                    "b": 255
+                                }
+                            }
+                        },
+                        {
+                            "multiline": "False",
+                            "centered": "False",
+                            "wrap_width": 28,
+                            "value": session["session_id"],
+                            "position": {
+                                "x": 80,
+                                "y": 340
+                            },
+                            "font": {
+                                "size": 48,
+                                "family": "fonts/Lato-Bold.ttf",
+                                "colour": {
+                                    "r": 255,
+                                    "g": 255,
+                                    "b": 255
+                                }
+                            }
+                        },
+                        {
+                            "multiline": "False",
+                            "centered": "False",
+                            "wrap_width": 28,
+                            "value": session["event_type"],
+                            "position": {
+                                "x": 80,
+                                "y": 400
+                            },
+                            "font": {
+                                "size": 28,
+                                "family": "fonts/Lato-Bold.ttf",
+                                "colour": {
+                                    "r": 255,
+                                    "g": 255,
+                                    "b": 255
+                                }
+                            }
+                        },
+                        {
+                            "multiline": "True",
+                            "centered": "False",
+                            "wrap_width": 28,
+                            "value": session["session_title"],
+                            "position": {
+                                "x": 80,
+                                "y": 440
+                            },
+                            "font": {
+                                "size": 48,
+                                "family": "fonts/Lato-Bold.ttf",
+                                "colour": {
+                                    "r": 255,
+                                    "g": 255,
+                                    "b": 255
+                                }
+                            }
+                        }
+                    ],
+                }
+            }
+            # Generate the image
+            self.social_image_generator.create_image(image_options)
 
 
 if __name__ == '__main__':
