@@ -24,6 +24,7 @@ class AutomationContainer:
         # Define the CDN URL for Connect static resources
         self.cdn_url = "https://static.linaro.org"
         self.responsive_image_widths = [300, 800, 1200]
+        self.github_reviewers = ["kylekirkby", "pcolmer"]
         # Args
         self.args = args
         self.static_bucket = "static-linaro-org"
@@ -189,7 +190,7 @@ class AutomationContainer:
         full_ssh_path = secret_output_path + output_file_name
         self.run_command("chmod 400 {}".format(full_ssh_path))
         github_manager = GitHubManager(
-            "https://github.com/linaro/connect", self.env["bamboo_working_directory"],"/app", full_ssh_path, self.env["bamboo_github_access_password"])
+            "https://github.com/linaro/connect", self.env["bamboo_working_directory"], "/app", full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
         github_manager.clone_repo()
         for session in self.json_data.values():
             session_image = {

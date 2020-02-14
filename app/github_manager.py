@@ -8,7 +8,7 @@ import requests
 
 class GitHubManager:
 
-    def __init__(self, repo_url, working_directory, app_directory, path_to_ssh_key, auth_token):
+    def __init__(self, repo_url, working_directory, app_directory, path_to_ssh_key, auth_token, reviewers):
 
         self.github_repo = repo_url
         self.github_repo_key = self.github_repo.lstrip("https://github.com/")
@@ -17,7 +17,7 @@ class GitHubManager:
         self.ssh_key_path = path_to_ssh_key
         self.auth_token = auth_token
         self.error = False
-        self.reviewers = ["kylekirkby", "pcolmer"]
+        self.reviewers = reviewers
 
     def run_command(self, command):
         result = subprocess.run(
