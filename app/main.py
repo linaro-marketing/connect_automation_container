@@ -66,6 +66,8 @@ class AutomationContainer:
                 self.env["bamboo_s3_session_id"])
         elif self.args.daily_tasks:
             self.daily_tasks()
+        elif self.args.social_images:
+            self.social_media_images()
         else:
             print("Please provide either the --upload-video or --daily-tasks flag ")
 
@@ -173,13 +175,7 @@ class AutomationContainer:
             {"output": "work_dir/website/_posts/{}/sessions/".format(self.env["bamboo_connect_uid"].lower())}, verbose=True)
         self.update_jekyll_posts()
         print("Creating GitHub pull request with changed Jekyll posts...")
-        self.social_image_generator = SocialImageGenerator(
-            {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
-        print("Generating Social Media Share Images...")
-        self.generate_images()
-        self.generate_responsive_images("/app/work_dir/images/")
-        if self.args.no_upload != True:
-            self.upload_images_to_s3("/app/work_dir/images/")
+        self.social_media_images()
         # print("Downloading presentations from sched...")
         # print("Uploading presentations to s3...")
         # print("Updating the resources.json file...")
@@ -196,8 +192,6 @@ class AutomationContainer:
         return github_manager
 
     def update_jekyll_posts(self):
-
-
 
         current_posts = self.get_list_of_files_in_dir_based_on_ext("work_dir/website/_posts/bud20/sessions/",".md")
         # Rmeove a session as a test..
@@ -323,6 +317,15 @@ class AutomationContainer:
             except Exception as e:
                 print(e)
         return current_ids
+
+    def social_media_images(self):
+        self.social_image_generator = SocialImageGenerator(
+            {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
+        print("Generating Social Media Share Images...")
+        self.generate_images()
+        self.generate_responsive_images("/app/work_dir/images/")
+        if self.args.no_upload != True:
+            self.upload_images_to_s3("/app/work_dir/images/")
 
     def generate_images(self):
 
@@ -452,5 +455,7 @@ if __name__ == '__main__':
                         help='If specified, the daily Connect automation tasks are run.')
     parser.add_argument('--no-upload', action='store_true',
                         help='If specified, assets are not uploaded to s3.')
+    parser.add_argument('--social-images', action='store_true',
+                        help='If specified, only the social media share images task is executed.')
     args = parser.parse_args()
     AutomationContainer(args)
