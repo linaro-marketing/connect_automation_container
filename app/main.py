@@ -14,7 +14,10 @@ from jekyll_post_tool import JekyllPostTool
 from sched_presentation_tool import SchedPresentationTool
 from connect_youtube_uploader import ConnectYoutubeUploader
 import vault_auth
+from github_manager import GitHubManager
 
+VAULT_URL = "https://login.linaro.org:8200"
+VAULT_ROLE = "vault_connect_automation"
 
 class AutomationContainer:
     def __init__(self, args):
@@ -29,6 +32,7 @@ class AutomationContainer:
             "bamboo_sched_url",
             "bamboo_connect_uid",
             "bamboo_working_directory",
+            "bamboo_github_access_password",
             "bamboo_s3_session_id"]
         self.env = self.get_environment_variables(
             self.accepted_variables)
@@ -79,6 +83,14 @@ class AutomationContainer:
                 found_variables[variable] = variable_check
         return found_variables
 
+    def get_vault_secret(self, secret_path):
+        secret = vault_auth.get_secret(
+            secret_path,
+            iam_role=VAULT_ROLE,
+            url=VAULT_URL
+        )
+        return secret["data"]["pw"]
+
     def get_secret_from_vault(self, vault_path, output_file_name):
         """Used to retrive a secret json file from the linaro-its vault_auth module"""
 
@@ -88,7 +100,7 @@ class AutomationContainer:
         secret_output_full_path = secret_output_path + output_file_name
 
         if not os.path.isfile(secret_output_full_path):
-            secret = vault_auth.get_vault_secret(vault_path)
+            secret = self.get_vault_secret(vault_path)
             with open(secret_output_full_path, 'w') as file:
                 file.write(secret)
         return secret_output_path, output_file_name
@@ -151,10 +163,11 @@ class AutomationContainer:
         """Handles the running of daily_tasks"""
         start_time = time.time()
         print("Daily Connect Automation Tasks starting...")
+
         print("Creating Jekyll Posts...")
         self.post_tool = JekyllPostTool(
-            {"output": "work_dir/posts/"}, verbose=True)
-        self.create_jekyll_posts()
+            {"output": "work_dir/website/_posts/{}/sessions/".format(self.env["bamboo_connect_uid"].lower())}, verbose=True)
+        self.update_jekyll_posts()
         print("Creating GitHub pull request with changed Jekyll posts...")
         self.social_image_generator = SocialImageGenerator(
             {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
@@ -169,8 +182,15 @@ class AutomationContainer:
         end_time = time.time()
         print("Daily tasks complete in {} seconds.".format(end_time-start_time))
 
-    def create_jekyll_posts(self, post_tool):
+    def update_jekyll_posts(self):
 
+        secret_output_path, output_file_name = self.get_secret_from_vault(
+            "secret/misc/linaro-build-github.pem", "linaro-build-github.pem")
+        full_ssh_path = secret_output_path + output_file_name
+        self.run_command("chmod 400 {}".format(full_ssh_path))
+        github_manager = GitHubManager(
+            "https://github.com/linaro/connect", self.env["bamboo_working_directory"],"/app", full_ssh_path, self.env["bamboo_github_access_password"])
+        github_manager.clone_repo()
         for session in self.json_data.values():
             session_image = {
                 "path": "{}/connect/{}/images/{}.png".format(self.cdn_url, self.env["bamboo_connect_uid"].lower(), session["session_id"]),
