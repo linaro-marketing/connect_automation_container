@@ -18,6 +18,9 @@ class GitHubManager:
         self.auth_token = auth_token
         self.error = False
         self.reviewers = reviewers
+        self.repo_output_name = "website"
+        self.repo_dir = "{}/{}".format(self.working_dir, self.repo_output_name)
+        self.repo = self.clone_repo()
 
     def run_command(self, command):
         result = subprocess.run(
@@ -28,49 +31,62 @@ class GitHubManager:
             print(result.stdout.decode("utf-8"))
             print(result.stderr.decode("utf-8"))
 
-    def run_git_command(self, command):
+    def run_repo_command(self, command):
+        """Runs a command inside the repo directory"""
+        os.chdir(self.repo_dir)
+        self.run_command(command)
+        os.chdir(self.app_dir)
+
+    def run_git_command(self, command, in_repo_directory=True):
         """ Run a git command on the repo """
+        if in_repo_directory:
+            os.chdir(self.repo_dir)
         git_cmd = 'ssh-add "{}"; {}'.format(self.ssh_key_path, command)
         full_cmd = "ssh-agent bash -c '{}'".format(git_cmd)
+        print("running {}".format(full_cmd))
         self.run_command(full_cmd)
+        if in_repo_directory:
+            os.chdir(self.app_dir)
 
 
-    def create_branch(self, repo, branch_name):
+    def commit_and_push(self, commit_message):
+        # Only use run_git_command when we need the SSH key involved.
+        self.run_repo_command("git add --all")
+        self.run_repo_command("git commit -m {}".format(self.repo.active_branch.name))
+        self.run_git_command(
+            "git push --set-upstream origin {}".format(self.repo.active_branch.name))
+
+    def create_branch(self, branch_name):
         # Name the branch after the date and time
         #
-
-        branch = repo.create_head(branch_name)
+        branch = self.repo.create_head(branch_name)
         branch.checkout()
         print("Checked out {}".format(branch_name))
 
     def clone_repo(self):
         """Clones or pulls the repo specified in the constructor"""
-        repo_dir = "{}/website".format(self.working_dir)
-        if os.path.isdir(repo_dir):
-            os.chdir(repo_dir)
+        if os.path.isdir(self.repo_dir):
             print("Pulling repository...")
-            self.run_git_command("git pull")
+            self.run_repo_command("git pull")
         else:
             # Make sure we are in the working directory
             os.chdir(self.working_dir)
             print("Cloning website repository")
             print("Running git clone {}".format(self.github_repo))
-            self.run_git_command("git clone {} website".format(self.github_repo))
-        os.chdir(self.app_dir)
-        return Repo(repo_dir)
+            self.run_git_command(
+                "git clone git@github.com:{}.git website".format(
+                    self.github_repo_key), in_repo_directory=False)
+            os.chdir(self.app_dir)
 
-    def create_github_pull_request(self, branch, title, body):
+        return Repo(self.repo_dir)
+
+    def create_github_pull_request(self, title, body):
         """ Create a GitHub pull request with the latest Connect Jekyll posts"""
-
-        if not self.error:
-            self.check_logo_status()
-            self.check_repo_status(repo)
-        self.clean_up_repo(repo)
 
         data = {
             "title": title,
             "body": body,
-            "head": repo.active_branch.name,
+            "head": self.repo.active_branch.name,
             "base": "master"
         }
 
