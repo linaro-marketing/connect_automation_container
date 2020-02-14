@@ -5,7 +5,9 @@ import datetime
 import os
 from slugify import slugify
 import subprocess
+import frontmatter
 import time
+import re
 import shlex
 from social_image_generator import SocialImageGenerator
 from sched_data_interface import SchedDataInterface
@@ -122,6 +124,7 @@ class AutomationContainer:
             print("You're missing one of the required environment variables bamboo_sched_url, bamboo_sched_password, bamboo_connect_uid, bamboo_youtube_client_secret, bamboo_s3_session_id")
 
     def run_command(self, command):
+        print("Executing: {}".format(command))
         # # Use Shlex to split the command for subprocess to handle stdout correctly.
         split_command = shlex.split(command)
 
@@ -164,7 +167,7 @@ class AutomationContainer:
         """Handles the running of daily_tasks"""
         start_time = time.time()
         print("Daily Connect Automation Tasks starting...")
-
+        self.github_manager = self.setup_github_manager()
         print("Creating Jekyll Posts...")
         self.post_tool = JekyllPostTool(
             {"output": "work_dir/website/_posts/{}/sessions/".format(self.env["bamboo_connect_uid"].lower())}, verbose=True)
@@ -183,15 +186,32 @@ class AutomationContainer:
         end_time = time.time()
         print("Daily tasks complete in {} seconds.".format(end_time-start_time))
 
-    def update_jekyll_posts(self):
-
+    def setup_github_manager(self):
         secret_output_path, output_file_name = self.get_secret_from_vault(
             "secret/misc/linaro-build-github.pem", "linaro-build-github.pem")
         full_ssh_path = secret_output_path + output_file_name
         self.run_command("chmod 400 {}".format(full_ssh_path))
         github_manager = GitHubManager(
             "https://github.com/linaro/connect", self.env["bamboo_working_directory"], "/app", full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
-        github_manager.clone_repo()
+        return github_manager
+
+    def update_jekyll_posts(self):
+
+
+
+        current_posts = self.get_list_of_files_in_dir_based_on_ext("work_dir/website/_posts/bud20/sessions/",".md")
+        # Rmeove a session as a test..
+
+        del[self.json_data["BUD20-212"]]
+        del[self.json_data["BUD20-100K2"]]
+        latest_session_ids = list(self.json_data.keys())
+        current_session_ids = self.get_current_session_ids_from_posts()
+
+        files_have_been_changed = False
+
+        current_date = datetime.datetime.now().strftime(
+            "%Y-%m-%d")
+
         for session in self.json_data.values():
             session_image = {
                 "path": "{}/connect/{}/images/{}.png".format(self.cdn_url, self.env["bamboo_connect_uid"].lower(), session["session_id"]),
@@ -229,9 +249,80 @@ class AutomationContainer:
                 "session_track": session["event_type"],
                 "tag": "session",
             }
-            post_file_name = session["session_id"].lower() + ".md"
-            # Edit posts if file already exists
-            self.post_tool.write_post(post_frontmatter, "", post_file_name)
+
+            found = False
+            changed = False
+
+            lower_case_session_id = session["session_id"].lower()
+            changed_post_path = ""
+            for current_post_path in current_posts:
+                if lower_case_session_id in current_post_path:
+                    found = True
+                    # Load current front matter
+                    with open(current_post_path) as current_post:
+                        current_post_obj = frontmatter.loads(current_post.read())
+                        # Set the front matter
+                        front_matter = current_post_obj.metadata
+                        if front_matter != post_frontmatter:
+                            changed = True
+                            changed_post_path = current_post_path
+            if found:
+                if changed:
+                    files_have_been_changed = True
+                    print("Updating post for {}".format(session["session_id"]))
+                    post_file_name = current_date + "-" + lower_case_session_id + ".md"
+                    # Edit posts if file already exists
+                    self.post_tool.write_post(
+                        post_frontmatter, "", post_file_name, changed_post_path)
+            else:
+                files_have_been_changed = True
+                print("Writing new post...")
+                post_file_name = current_date + "-" + lower_case_session_id + ".md"
+                 # Edit posts if file already exists
+                self.post_tool.write_post(post_frontmatter, "", post_file_name)
+
+        # Delete sessions that don't exist in latest export
+        for current_session_id in current_session_ids:
+            if current_session_id not in latest_session_ids:
+                files_have_been_changed = True
+                file_to_delete = self.get_list_of_files_in_dir_based_on_ext(
+                    "work_dir/website/_posts/{}/sessions/".format(self.env["bamboo_connect_uid"].lower()), "{}.md".format(current_session_id.lower()))[0]
+                self.run_command("rm {}".format(file_to_delete))
+
+        # Commit and create the pull request
+        if self.github_manager.repo.is_dirty():
+            self.github_manager.create_branch("session-update-{}".format(current_date))
+            self.github_manager.commit_and_push("Session update - {}".format(self.github_manager.repo.active_branch.name))
+            self.github_manager.create_github_pull_request("Session update for {}".format(current_date), "Session posts updated by the ConnectAutomation container.")
+        else:
+            print("No changes to push!")
+
+
+    def get_list_of_files_in_dir_based_on_ext(self, folder, extension):
+        file_list = []
+        for file in os.listdir(folder):
+            if file.endswith(extension):
+                file_list.append(os.path.join(folder, file))
+        return file_list
+
+    def get_current_session_ids_from_posts(self):
+        file_list = self.get_list_of_files_in_dir_based_on_ext(
+            "work_dir/website/_posts/{}/sessions/".format(self.env["bamboo_connect_uid"].lower()), ".md")
+
+        current_ids = []
+        for each in file_list:
+            # Get the first item found based on the regex
+            try:
+                # Get the first item found based on the regex
+                                # Check if we should delete
+                session_id_regex = re.compile(
+                    '{}-[A-Za-z]*[0-9]+k*[0-9]*'.format(self.env["bamboo_connect_uid"].lower()))
+                session_id = session_id_regex.findall(each)[0]
+                current_ids.append(session_id.upper())
+            # If no session ID exists then skip the session and output a warning
+            except Exception as e:
+                print(e)
+        return current_ids
 
     def generate_images(self):
 
