@@ -8,11 +8,12 @@ import requests
 
 class GitHubManager:
 
-    def __init__(self, repo_url, working_directory, path_to_ssh_key, auth_token):
+    def __init__(self, repo_url, working_directory, app_directory, path_to_ssh_key, auth_token):
 
         self.github_repo = repo_url
         self.github_repo_key = self.github_repo.lstrip("https://github.com/")
         self.working_dir = working_directory
+        self.app_dir = app_directory
         self.ssh_key_path = path_to_ssh_key
         self.auth_token = auth_token
         self.error = False
@@ -29,8 +30,8 @@ class GitHubManager:
 
     def run_git_command(self, command):
         """ Run a git command on the repo """
-        git_cmd = 'ssh-add "%s"; %s' % (self.ssh_key_path, command)
-        full_cmd = "ssh-agent bash -c '%s'" % git_cmd
+        git_cmd = 'ssh-add "{}"; {}'.format(self.ssh_key_path, command)
+        full_cmd = "ssh-agent bash -c '{}'".format(git_cmd)
         self.run_command(full_cmd)
 
 
@@ -53,12 +54,13 @@ class GitHubManager:
             # Make sure we are in the working directory
             os.chdir(self.working_dir)
             print("Cloning website repository")
-            self.run_git_command("git clone {}".format(self.github_repo))
+            print("Running git clone {}".format(self.github_repo))
+            self.run_git_command("git clone {} website".format(self.github_repo))
+        os.chdir(self.app_dir)
         return Repo(repo_dir)
 
     def create_github_pull_request(self, branch, title, body):
         """ Create a GitHub pull request with the latest Connect Jekyll posts"""
-
 
         if not self.error:
             self.check_logo_status()
