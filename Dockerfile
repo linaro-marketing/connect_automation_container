@@ -88,6 +88,8 @@ RUN useradd -ms /bin/bash connect
 # Create the .aws folder and copy over base config
 RUN mkdir /home/connect/.aws/
 COPY aws_config /home/connect/.aws/config
+COPY .gitconfig /home/connect/.gitconfig
+COPY .ssh_config /home/connect/.ssh/config
 RUN chown -R connect:connect /home/connect
 
 # Switch to the Connect User
