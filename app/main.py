@@ -16,7 +16,7 @@ from jekyll_post_tool import JekyllPostTool
 from sched_presentation_tool import SchedPresentationTool
 from connect_youtube_uploader import ConnectYoutubeUploader
 import vault_auth
-from github_manager import GitHubManager
+from github_automation import GitHubManager
 
 VAULT_URL = "https://login.linaro.org:8200"
 VAULT_ROLE = "vault_connect_automation"
