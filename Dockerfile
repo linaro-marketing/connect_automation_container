@@ -21,7 +21,6 @@ ENV LANG en_US.UTF-8
 # FIXME: Python packages should be in a pipenv
 COPY requirements.txt /tmp/
 
-
 RUN export DEBIAN_FRONTEND=noninteractive && \
     apt-get update && \
     # Temporarily set `C` for locale, as it's the only one available
@@ -56,7 +55,10 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     git+https://github.com/linaro-marketing/SocialMediaImageGenerator.git \
     git+https://github.com/linaro-marketing/connect_youtube_uploader.git \
     git+https://github.com/linaro-marketing/SchedPresentationTool.git \
+    git+https://github.com/linaro-its/vault_auth.git@master \
     && \
+# Install the AWS CLI
+    pip3 install awscli && \
 # Clean up package cache in this layer
     apt-get --purge remove -y \
 # Uninstall temporary packages
@@ -74,8 +76,25 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     /var/log/* \
     /var/lib/apt/lists/*
 
+# Install ImageMagick and git cli
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y git && \
+    apt-get install -y imagemagick
 
-# Should map user for this
+# Add a new user with home directory
+RUN useradd -ms /bin/bash connect
+
+# Create the .aws folder and copy over base config
+RUN mkdir /home/connect/.aws/
+COPY aws_config /home/connect/.aws/config
+COPY .gitconfig /home/connect/.gitconfig
+COPY .ssh_config /home/connect/.ssh/config
+RUN chown -R connect:connect /home/connect
+
+# Switch to the Connect User
+USER connect
+
 WORKDIR /app
 COPY app /app
 
