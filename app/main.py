@@ -71,14 +71,6 @@ class AutomationContainer:
         else:
             print("Please provide either the --upload-video or --daily-tasks flag ")
 
-    def upload_files_to_s3(self, folder, s3_prefix):
-        """Upload the files in the specified folder to s3"""
-        for filename in os.listdir(folder):
-            if filename.endswith(".png"):
-                print("*", end="", flush=True)
-                self.s3_interface.upload_file_to_s3(
-                    os.path.join(folder, filename), s3_prefix + filename)
-
     def get_environment_variables(self, accepted_variables):
         """Gets an environment variables that have been set i.e bamboo_sched_password"""
         found_variables = {}
@@ -164,6 +156,21 @@ class AutomationContainer:
             self.run_command(
                 "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
             print()
+    def update_presentations(self, presentation_directory, other_files_directory):
+
+        """
+        This method will download any new presentations from the Sched API using
+        the SchedDataInterface and upload these to the static AWS S3 CDN bucket
+        """
+        self.sched_presentation_tool = SchedPresentationTool(
+            presentation_directory, self.json_data)
+        self.sched_presentation_tool.update()
+        print("Uploading presentations to s3...")
+        self.run_command(
+            "aws s3 sync {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+        print("Uploading other files to s3...")
+        self.run_command(
+            "aws s3 sync {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
 
     def daily_tasks(self):
         """Handles the running of daily_tasks"""
@@ -176,9 +183,11 @@ class AutomationContainer:
         self.update_jekyll_posts()
         print("Creating GitHub pull request with changed Jekyll posts...")
         self.social_media_images()
-        # print("Downloading presentations from sched...")
-        # print("Uploading presentations to s3...")
-        # print("Updating the resources.json file...")
+        print("Updating session presentations...")
+        self.update_presentations("/app/work_dir/presentations/", "/app/work_dir/other_files/")
+        print("Updating the resources.json file...")
+        self.s3_interface.update()
+        print("resources.json file updated...")
         end_time = time.time()
         print("Daily tasks complete in {} seconds.".format(end_time-start_time))
 
@@ -194,10 +203,7 @@ class AutomationContainer:
     def update_jekyll_posts(self):
 
         current_posts = self.get_list_of_files_in_dir_based_on_ext("work_dir/website/_posts/bud20/sessions/",".md")
-        # Rmeove a session as a test..
 
-        del[self.json_data["BUD20-212"]]
-        del[self.json_data["BUD20-100K2"]]
         latest_session_ids = list(self.json_data.keys())
         current_session_ids = self.get_current_session_ids_from_posts()
 
