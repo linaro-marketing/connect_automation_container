@@ -68,6 +68,9 @@ class AutomationContainer:
             self.daily_tasks()
         elif self.args.social_images:
             self.social_media_images()
+        elif self.args.upload_presentations:
+            self.update_presentations(
+                "/app/work_dir/presentations/", "/app/work_dir/other_files/")
         else:
             print("Please provide either the --upload-video or --daily-tasks flag ")
 
@@ -163,14 +166,15 @@ class AutomationContainer:
         the SchedDataInterface and upload these to the static AWS S3 CDN bucket
         """
         self.sched_presentation_tool = SchedPresentationTool(
-            presentation_directory, self.json_data)
-        self.sched_presentation_tool.update()
+            presentation_directory, other_files_directory, self.json_data)
+        self.sched_presentation_tool.download()
         print("Uploading presentations to s3...")
-        self.run_command(
-            "aws s3 sync {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
-        print("Uploading other files to s3...")
-        self.run_command(
-            "aws s3 sync {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+        if not self.args.no_upload:
+            self.run_command(
+                "aws s3 sync {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+            print("Uploading other files to s3...")
+            self.run_command(
+                "aws s3 sync {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
 
     def daily_tasks(self):
         """Handles the running of daily_tasks"""
@@ -462,6 +466,10 @@ if __name__ == '__main__':
     parser.add_argument('--no-upload', action='store_true',
                         help='If specified, assets are not uploaded to s3.')
     parser.add_argument('--social-images', action='store_true',
+                        help='If specified, only the social media share images task is executed.')
+    parser.add_argument('--jekyll-posts', action='store_true',
+                        help='If specified, only the social media share images task is executed.')
+    parser.add_argument('--upload-presentations', action='store_true',
                         help='If specified, only the social media share images task is executed.')
     args = parser.parse_args()
     AutomationContainer(args)
