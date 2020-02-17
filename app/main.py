@@ -50,7 +50,7 @@ class AutomationContainer:
             self.json_data = self.sched_data_interface.getSessionsData()
             # Instantiate the ConnectJSONUpdater module
             self.s3_interface = ConnectJSONUpdater(
-                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data)
+                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data, self.env["bamboo_working_directory"])
             # Run the main logic method (daily-tasks or upload-video)
             self.main()
         else:
