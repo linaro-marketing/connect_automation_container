@@ -94,6 +94,9 @@ COPY .ssh_config /home/connect/.ssh/config
 RUN chown -R connect:connect /home/connect
 
 WORKDIR /app
+RUN mkdir /app/work_dir; chown -R connect:connect /app/work_dir
+
+VOLUME ["/app/work_dir"]
 
 COPY app /app
 
