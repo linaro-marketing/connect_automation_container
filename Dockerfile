@@ -93,10 +93,13 @@ COPY .gitconfig /home/connect/.gitconfig
 COPY .ssh_config /home/connect/.ssh/config
 RUN chown -R connect:connect /home/connect
 
+WORKDIR /app
+
+COPY app /app
+
+RUN chown -R connect:connect /app/
+
 # Switch to the Connect User
 USER connect
-
-WORKDIR /app
-COPY app /app
 
 ENV ENV="/app:${PATH}"
