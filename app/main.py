@@ -206,15 +206,14 @@ class AutomationContainer:
 
     def update_jekyll_posts(self):
 
-        current_posts = self.get_list_of_files_in_dir_based_on_ext("{}website/_posts/bud20/sessions/".format(self.work_directory),".md")
+        current_posts = self.get_list_of_files_in_dir_based_on_ext("{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower()),".md")
 
         latest_session_ids = list(self.json_data.keys())
         current_session_ids = self.get_current_session_ids_from_posts()
 
         files_have_been_changed = False
 
-        current_date = datetime.datetime.now().strftime(
-            "%Y-%m-%d")
+        current_date = datetime.datetime.now().strftime("%y%m%d-%H%M")
 
         for session in self.json_data.values():
             session_image = {
@@ -330,7 +329,7 @@ class AutomationContainer:
 
     def social_media_images(self):
         self.social_image_generator = SocialImageGenerator(
-            {"output": "{}images/".format(self.work_directory), "template": "assets/templates/bud20-placeholder.jpg"})
+            {"output": "{}images/".format(self.work_directory), "template": "{}assets/templates/{}-placeholder.jpg".format(self.work_directory, self.env["bamboo_connect_uid"].lower()), "assets_path": "/app/assets/"})
         print("Generating Social Media Share Images...")
         self.generate_images()
         self.generate_responsive_images("{}images/".format(self.work_directory))
