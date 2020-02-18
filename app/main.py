@@ -330,7 +330,7 @@ class AutomationContainer:
 
     def social_media_images(self):
         self.social_image_generator = SocialImageGenerator(
-            {"output": "{}images/".format(self.work_directory), "template": "assets/templates/bud20-placeholder.jpg"})
+            {"output": "{}images/".format(self.work_directory), "template": "{}assets/templates/bud20-placeholder.jpg".format(self.work_directory), "assets_path": "/app/assets/"})
         print("Generating Social Media Share Images...")
         self.generate_images()
         self.generate_responsive_images("{}images/".format(self.work_directory))
