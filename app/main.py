@@ -114,7 +114,20 @@ class AutomationContainer:
                 self.env["bamboo_connect_uid"]):
             secrets_path, secrets_file_name = self.get_secret_from_vault(
                 "secret/misc/connect_google_secret.json", "youtube_secret.json")
-            uploader = ConnectYoutubeUploader(secrets_path, secrets_file_name)
+            video_manager = ConnectYoutubeUploader(secrets_path, secrets_file_name)
+            video_path = video_manager.download_video("{}/connect/{}/videos/{}.mp4".format(self.cdn_url, self.env["bamboo_connect_uid"].lower(), session_id.lower()),
+                             "{}videos/".format(self.work_directory))
+            session_details = self.json_data[session_id.upper()]
+            video_options = {
+                "file": path,
+                "title": session_details["title"],
+                "description": session_details["description"],
+                "keywords": "bud20,Open Source,Arm, budapest",
+                            "category": "28",
+                            "privacyStatus": "private"
+            }
+            print(video_options)
+            # uploaded = video_manager.upload_video(video_options)
             print("Uploading video for {} to YouTube".format(session_id))
             print("Uploaded!")
         else:
@@ -329,7 +342,7 @@ class AutomationContainer:
 
     def social_media_images(self):
         self.social_image_generator = SocialImageGenerator(
-            {"output": "{}images/".format(self.work_directory), "template": "{}assets/templates/{}-placeholder.jpg".format(self.work_directory, self.env["bamboo_connect_uid"].lower()), "assets_path": "/app/assets/"})
+            {"output": "{}images/".format(self.work_directory), "template": "/app/assets/templates/{}-placeholder.jpg".format(self.env["bamboo_connect_uid"].lower()), "assets_path": "/app/assets/"})
         print("Generating Social Media Share Images...")
         self.generate_images()
         self.generate_responsive_images("{}images/".format(self.work_directory))
