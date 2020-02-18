@@ -51,7 +51,7 @@ class AutomationContainer:
             self.json_data = self.sched_data_interface.getSessionsData()
             # Instantiate the ConnectJSONUpdater module
             self.s3_interface = ConnectJSONUpdater(
-                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data, self.env["bamboo_working_directory"])
+                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data, self.work_directory)
             # Run the main logic method (daily-tasks or upload-video)
             self.main()
         else:
@@ -95,8 +95,7 @@ class AutomationContainer:
     def get_secret_from_vault(self, vault_path, output_file_name):
         """Used to retrive a secret json file from the linaro-its vault_auth module"""
 
-        secret_output_path = "{}/".format(
-            self.env["bamboo_working_directory"])
+        secret_output_path = self.work_directory
 
         secret_output_full_path = secret_output_path + output_file_name
 
@@ -202,7 +201,7 @@ class AutomationContainer:
         full_ssh_path = secret_output_path + output_file_name
         self.run_command("chmod 400 {}".format(full_ssh_path))
         github_manager = GitHubManager(
-            "https://github.com/linaro/connect", self.env["bamboo_working_directory"], "/app", full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
+            "https://github.com/linaro/connect", self.work_directory, "/app", full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
         return github_manager
 
     def update_jekyll_posts(self):
