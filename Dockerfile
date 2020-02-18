@@ -93,10 +93,16 @@ COPY .gitconfig /home/connect/.gitconfig
 COPY .ssh_config /home/connect/.ssh/config
 RUN chown -R connect:connect /home/connect
 
+WORKDIR /app
+RUN mkdir /app/work_dir; chown -R connect:connect /app/work_dir
+
+VOLUME ["/app/work_dir"]
+
+COPY app /app
+
+RUN chown -R connect:connect /app/
+
 # Switch to the Connect User
 USER connect
-
-WORKDIR /app
-COPY app /app
 
 ENV ENV="/app:${PATH}"
