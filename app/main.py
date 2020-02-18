@@ -213,8 +213,7 @@ class AutomationContainer:
 
         files_have_been_changed = False
 
-        current_date = datetime.datetime.now().strftime(
-            "%Y-%m-%d")
+        current_date = datetime.datetime.now().strftime("%y%m%d-%H%M")
 
         for session in self.json_data.values():
             session_image = {
