@@ -26,6 +26,7 @@ class AutomationContainer:
         # Define the CDN URL for Connect static resources
         self.cdn_url = "https://static.linaro.org"
         self.responsive_image_widths = [300, 800, 1200]
+        self.work_directory = "/app/work_dir/"
         self.github_reviewers = ["kylekirkby", "pcolmer"]
         # Args
         self.args = args
@@ -70,7 +71,7 @@ class AutomationContainer:
             self.social_media_images()
         elif self.args.upload_presentations:
             self.update_presentations(
-                "/app/work_dir/presentations/", "/app/work_dir/other_files/")
+                "{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
         else:
             print("Please provide either the --upload-video or --daily-tasks flag ")
 
@@ -183,12 +184,12 @@ class AutomationContainer:
         self.github_manager = self.setup_github_manager()
         print("Creating Jekyll Posts...")
         self.post_tool = JekyllPostTool(
-            {"output": "work_dir/website/_posts/{}/sessions/".format(self.env["bamboo_connect_uid"].lower())}, verbose=True)
+            {"output": "{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())}, verbose=True)
         self.update_jekyll_posts()
         print("Creating GitHub pull request with changed Jekyll posts...")
         self.social_media_images()
         print("Updating session presentations...")
-        self.update_presentations("/app/work_dir/presentations/", "/app/work_dir/other_files/")
+        self.update_presentations("{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
         print("Updating the resources.json file...")
         self.s3_interface.update()
         print("resources.json file updated...")
@@ -206,7 +207,7 @@ class AutomationContainer:
 
     def update_jekyll_posts(self):
 
-        current_posts = self.get_list_of_files_in_dir_based_on_ext("work_dir/website/_posts/bud20/sessions/",".md")
+        current_posts = self.get_list_of_files_in_dir_based_on_ext("{}website/_posts/bud20/sessions/".format(self.work_directory),".md")
 
         latest_session_ids = list(self.json_data.keys())
         current_session_ids = self.get_current_session_ids_from_posts()
@@ -290,7 +291,7 @@ class AutomationContainer:
             if current_session_id not in latest_session_ids:
                 files_have_been_changed = True
                 file_to_delete = self.get_list_of_files_in_dir_based_on_ext(
-                    "work_dir/website/_posts/{}/sessions/".format(self.env["bamboo_connect_uid"].lower()), "{}.md".format(current_session_id.lower()))[0]
+                    "{}/website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower()), "{}.md".format(current_session_id.lower()))[0]
                 self.run_command("rm {}".format(file_to_delete))
 
         # Commit and create the pull request
@@ -311,7 +312,7 @@ class AutomationContainer:
 
     def get_current_session_ids_from_posts(self):
         file_list = self.get_list_of_files_in_dir_based_on_ext(
-            "work_dir/website/_posts/{}/sessions/".format(self.env["bamboo_connect_uid"].lower()), ".md")
+            "{}/website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower()), ".md")
 
         current_ids = []
         for each in file_list:
@@ -330,12 +331,12 @@ class AutomationContainer:
 
     def social_media_images(self):
         self.social_image_generator = SocialImageGenerator(
-            {"output": "work_dir/images/", "template": "assets/templates/bud20-placeholder.jpg"})
+            {"output": "{}images/".format(self.work_directory), "template": "assets/templates/bud20-placeholder.jpg"})
         print("Generating Social Media Share Images...")
         self.generate_images()
-        self.generate_responsive_images("/app/work_dir/images/")
+        self.generate_responsive_images("{}images/".format(self.work_directory))
         if self.args.no_upload != True:
-            self.upload_images_to_s3("/app/work_dir/images/")
+            self.upload_images_to_s3("{}images/".format(self.work_directory))
 
     def generate_images(self):
 
