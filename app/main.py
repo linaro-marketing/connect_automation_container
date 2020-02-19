@@ -51,7 +51,7 @@ class AutomationContainer:
             self.json_data = self.sched_data_interface.getSessionsData()
             # Instantiate the ConnectJSONUpdater module
             self.s3_interface = ConnectJSONUpdater(
-                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data, self.work_directory)
+                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data, self.work_directory, "ConnectBucketOwner")
             # Run the main logic method (daily-tasks or upload-video)
             self.main()
         else:
@@ -286,14 +286,14 @@ class AutomationContainer:
                 if changed:
                     files_have_been_changed = True
                     print("Updating post for {}".format(session["session_id"]))
-                    post_file_name = current_date + "-" + lower_case_session_id + ".md"
+                    post_file_name = datetime.datetime.now().strftime("%Y-%m-%d") + "-" + lower_case_session_id + ".md"
                     # Edit posts if file already exists
                     self.post_tool.write_post(
                         post_frontmatter, "", post_file_name, changed_post_path)
             else:
                 files_have_been_changed = True
                 print("Writing new post...")
-                post_file_name = current_date + "-" + lower_case_session_id + ".md"
+                post_file_name = datetime.datetime.now().strftime("%Y-%m-%d") + "-" + lower_case_session_id + ".md"
                  # Edit posts if file already exists
                 self.post_tool.write_post(post_frontmatter, "", post_file_name)
 
