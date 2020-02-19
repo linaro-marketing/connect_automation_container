@@ -21,11 +21,16 @@ from github_automation import GitHubManager
 VAULT_URL = "https://login.linaro.org:8200"
 VAULT_ROLE = "vault_connect_automation"
 
+import boto3
+
 class AutomationContainer:
     def __init__(self, args):
         # Define the CDN URL for Connect static resources
         self.cdn_url = "https://static.linaro.org"
         self.responsive_image_widths = [300, 800, 1200]
+        self.role_arn = "arn:aws:iam::691071635361:role/static-linaro-org-connect_Owner"
+        self.role_session_name = "ConnectAutomationContainer"
+        self.assume_role(self.role_arn, self.role_session_name)
         self.work_directory = "/app/work_dir/"
         self.github_reviewers = ["kylekirkby", "pcolmer"]
         # Args
@@ -51,12 +56,29 @@ class AutomationContainer:
             self.json_data = self.sched_data_interface.getSessionsData()
             # Instantiate the ConnectJSONUpdater module
             self.s3_interface = ConnectJSONUpdater(
-                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data, self.work_directory, "ConnectBucketOwner")
+                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data, self.work_directory)
             # Run the main logic method (daily-tasks or upload-video)
             self.main()
         else:
             print(
                 "Missing bamboo_sched_url, bamboo_sched_password and bamboo_connect_uid environment variables")
+
+    def assume_role(self, arn, session_name):
+
+        client = boto3.client('sts')
+        access = client.assume_role(
+            RoleArn=arn,
+            RoleSessionName=session_name
+            )
+        access_key = access["Credentials"]["AccessKeyId"]
+        secret_access_key = access["Credentials"]["SecretAccessKey"]
+        session_token = access["Credentials"]["SessionToken"]
+
+        os.environ["AWS_ACCESS_KEY_ID"] = access_key
+        os.environ["AWS_SECRET_ACCESS_KEY"] = secret_access_key
+        os.environ["AWS_SESSION_TOKEN"] = session_token
+
+        return True
 
     def main(self):
         """Takes the argparse arguments as input and starts scripts"""
@@ -162,7 +184,7 @@ class AutomationContainer:
         print("Uploading generated social media share images to s3...")
         print("Syncing original PNG images...")
 
-        self.run_command("aws --profile ConnectBucketOwner s3 sync {0} s3://{1}/connect/{2}/images/".format(
+        self.run_command("aws s3 sync {0} s3://{1}/connect/{2}/images/".format(
             base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
 
         print("Uploading ImageMagick resized images...")
@@ -170,7 +192,7 @@ class AutomationContainer:
         for width in self.responsive_image_widths:
             print("Syncing {} width images...".format(width))
             self.run_command(
-                "aws --profile ConnectBucketOwner s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
+                "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
             print()
     def update_presentations(self, presentation_directory, other_files_directory):
 
