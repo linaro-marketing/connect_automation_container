@@ -51,7 +51,7 @@ class AutomationContainer:
             self.json_data = self.sched_data_interface.getSessionsData()
             # Instantiate the ConnectJSONUpdater module
             self.s3_interface = ConnectJSONUpdater(
-                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data, self.work_directory)
+                "static-linaro-org", "connect/{}/".format(self.env["bamboo_connect_uid"].lower()), self.json_data, self.work_directory, "ConnectBucketOwner")
             # Run the main logic method (daily-tasks or upload-video)
             self.main()
         else:
@@ -162,7 +162,7 @@ class AutomationContainer:
         print("Uploading generated social media share images to s3...")
         print("Syncing original PNG images...")
 
-        self.run_command("aws s3 sync {0} s3://{1}/connect/{2}/images/".format(
+        self.run_command("aws --profile ConnectBucketOwner s3 sync {0} s3://{1}/connect/{2}/images/".format(
             base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
 
         print("Uploading ImageMagick resized images...")
@@ -170,7 +170,7 @@ class AutomationContainer:
         for width in self.responsive_image_widths:
             print("Syncing {} width images...".format(width))
             self.run_command(
-                "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
+                "aws --profile ConnectBucketOwner s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
             print()
     def update_presentations(self, presentation_directory, other_files_directory):
 
@@ -286,14 +286,14 @@ class AutomationContainer:
                 if changed:
                     files_have_been_changed = True
                     print("Updating post for {}".format(session["session_id"]))
-                    post_file_name = current_date + "-" + lower_case_session_id + ".md"
+                    post_file_name = datetime.datetime.now().strftime("%Y-%m-%d") + "-" + lower_case_session_id + ".md"
                     # Edit posts if file already exists
                     self.post_tool.write_post(
                         post_frontmatter, "", post_file_name, changed_post_path)
             else:
                 files_have_been_changed = True
                 print("Writing new post...")
-                post_file_name = current_date + "-" + lower_case_session_id + ".md"
+                post_file_name = datetime.datetime.now().strftime("%Y-%m-%d") + "-" + lower_case_session_id + ".md"
                  # Edit posts if file already exists
                 self.post_tool.write_post(post_frontmatter, "", post_file_name)
 

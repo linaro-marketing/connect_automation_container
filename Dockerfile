@@ -83,26 +83,13 @@ RUN apt-get update && \
     apt-get install -y git && \
     apt-get install -y imagemagick
 
-# Add a new user with home directory
+# Add a new user with home directory and set
+# up the required environment
 RUN useradd -ms /bin/bash connect
-
-# Create the .aws folder and copy over base config
-RUN mkdir /home/connect/.aws/
-COPY aws_config /home/connect/.aws/config
-COPY .gitconfig /home/connect/.gitconfig
-COPY .ssh_config /home/connect/.ssh/config
-RUN chown -R connect:connect /home/connect
-
-WORKDIR /app
-RUN mkdir /app/work_dir; chown -R connect:connect /app/work_dir
-
-VOLUME ["/app/work_dir"]
-
-COPY app /app
-
-RUN chown -R connect:connect /app/
+COPY --chown=connect:connect home /home/connect/
+COPY --chown=connect:connect app /app/
 
 # Switch to the Connect User
 USER connect
-
+WORKDIR /app
 ENV ENV="/app:${PATH}"
