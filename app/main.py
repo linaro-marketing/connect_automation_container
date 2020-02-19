@@ -162,7 +162,7 @@ class AutomationContainer:
         print("Uploading generated social media share images to s3...")
         print("Syncing original PNG images...")
 
-        self.run_command("aws s3 sync {0} s3://{1}/connect/{2}/images/".format(
+        self.run_command("aws --profile ConnectBucketOwner s3 sync {0} s3://{1}/connect/{2}/images/".format(
             base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
 
         print("Uploading ImageMagick resized images...")
@@ -170,7 +170,7 @@ class AutomationContainer:
         for width in self.responsive_image_widths:
             print("Syncing {} width images...".format(width))
             self.run_command(
-                "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
+                "aws --profile ConnectBucketOwner s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
             print()
     def update_presentations(self, presentation_directory, other_files_directory):
 
