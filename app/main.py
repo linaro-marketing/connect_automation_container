@@ -178,12 +178,14 @@ class AutomationContainer:
                         "category": "28",
                         "privacyStatus": "private"
             }
+
+            print("Uploading video for {} to YouTube ".format(session_id))
             video_id = video_manager.upload_video(video_options)
             # Set the social media image path
 
-            thumbnail_set = video_manager.set_custom_thumbnail(, video_id)
+            thumbnail_set = video_manager.set_custom_thumbnail("{}images/{}.png".format(self.working_directory, session_id.upper()), video_id)
             youtube_url = f"https://https://www.youtube.com/watch?v={video_id}"
-            print("Uploading video for {} to YouTube ".format(session_id))
+            print(youtube_url)
             print("Uploaded!")
         else:
             print("You're missing one of the required environment variables bamboo_sched_url, bamboo_sched_password, bamboo_connect_uid, bamboo_youtube_client_secret, bamboo_s3_session_id")
