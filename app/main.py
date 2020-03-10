@@ -139,18 +139,51 @@ class AutomationContainer:
             video_manager = ConnectYoutubeUploader(secrets_path, secrets_file_name)
             video_path = video_manager.download_video("{}/connect/{}/videos/{}.mp4".format(self.cdn_url, self.env["bamboo_connect_uid"].lower(), session_id.lower()),
                              "{}videos/".format(self.work_directory))
-            session_details = self.json_data[session_id.upper()]
-            video_options = {
-                "file": path,
-                "title": session_details["title"],
-                "description": session_details["description"],
-                "keywords": "bud20,Open Source,Arm, budapest",
-                            "category": "28",
-                            "privacyStatus": "private"
+            # Get the session data for the given session id
+            session_data = self.json_data[session_id.upper()]
+            # Create the speakers portion of the YouTube video description
+            session_speakers_description = ""
+            for speaker in session_data["speakers"]:
+                speaker_role = ""
+                if speaker["company"] != "" and speaker["position"] != "":
+                    speaker_role = f"{speaker['position']} at {speaker['company']}"
+                elif speaker["company"] != "":
+                    speaker_role = speaker['company']
+                elif speaker["position"] != "":
+                    speaker_role = speaker['position']
+                session_speakers_description += f"{speaker['name']} - {speaker_role} \n {speaker['about']}"
+            # Set the session_abstract for the youtube video description
+            session_abstract = session_data["description"].replace("<br>","\n").replace("<br/>", "\n")
+            # Craft the session url
+            connect_website_url = "https://connect.linaro.org/resources/{}/session/{}/".format("bud20", "bud20-215")
+            # Format the complete video description
+            video_description = """Session Abstract
+
+            {}
+
+            Speakers
+
+            {}
+
+            Visit the Linaro Connect website for the session presentations and more:
+
+            {}
+            """.format(session_abstract, session_speakers_description, connect_website_url)
+            # Setup the upload payload object
+            video_options={
+                "file": video_path,
+                        "title": session_data["name"],
+                        "description": video_description,
+                        "tags": "bud20,Open Source,Arm, budapest",
+                        "category": "28",
+                        "privacyStatus": "private"
             }
-            print(video_options)
-            # uploaded = video_manager.upload_video(video_options)
-            print("Uploading video for {} to YouTube".format(session_id))
+            video_id = video_manager.upload_video(video_options)
+            # Set the social media image path
+
+            thumbnail_set = video_manager.set_custom_thumbnail(, video_id)
+            youtube_url = f"https://https://www.youtube.com/watch?v={video_id}"
+            print("Uploading video for {} to YouTube ".format(session_id))
             print("Uploaded!")
         else:
             print("You're missing one of the required environment variables bamboo_sched_url, bamboo_sched_password, bamboo_connect_uid, bamboo_youtube_client_secret, bamboo_s3_session_id")
