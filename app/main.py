@@ -183,7 +183,7 @@ class AutomationContainer:
             video_id = video_manager.upload_video(video_options)
             # Set the social media image path
 
-            thumbnail_set = video_manager.set_custom_thumbnail(, video_id)
+            thumbnail_set = video_manager.set_custom_thumbnail("{}images/{}.png".format(self.working_directory, session_id.upper()), video_id)
             youtube_url = f"https://https://www.youtube.com/watch?v={video_id}"
             print(youtube_url)
             print("Uploaded!")
