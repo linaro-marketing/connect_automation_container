@@ -330,7 +330,7 @@ class AutomationContainer:
                         "speaker_position": speaker["position"],
                         "speaker_company": speaker["company"],
                         "speaker_image": speaker["avatar"],
-                        "speaker_bio": speaker["about"],
+                        "speaker_bio": "{}".format(speaker["about"]),
                         "speaker_role": speaker["role"]
                     }
                     new_speakers.append(new_speaker)
@@ -506,7 +506,7 @@ class AutomationContainer:
                             "value": session["session_id"],
                             "position": {
                                 "x": 80,
-                                "y": 340
+                                "y": 140
                             },
                             "font": {
                                 "size": 48,
@@ -525,7 +525,7 @@ class AutomationContainer:
                             "value": session["event_type"],
                             "position": {
                                 "x": 80,
-                                "y": 400
+                                "y": 200
                             },
                             "font": {
                                 "size": 28,
@@ -544,7 +544,7 @@ class AutomationContainer:
                             "value": session["session_title"],
                             "position": {
                                 "x": 80,
-                                "y": 440
+                                "y": 240
                             },
                             "font": {
                                 "size": 48,
