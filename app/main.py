@@ -339,7 +339,11 @@ class AutomationContainer:
                 "start_time": session["event_start"],
                 "end_time": session["event_end"],
             }
-            session_room = session["venue"]
+            try:
+                session_room = session["venue"]
+            except KeyError as e:
+                session_room = ""
+
 
             post_frontmatter = {
                 "title": session["session_id"] + " - " + session["name"],
