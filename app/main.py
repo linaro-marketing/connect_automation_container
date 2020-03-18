@@ -334,9 +334,6 @@ class AutomationContainer:
                         "speaker_role": speaker["role"]
                     }
                     new_speakers.append(new_speaker)
-            print(session)
-            input()
-
 
             session_slot = {
                 "start_time": session["event_start"],
