@@ -5,6 +5,7 @@ import datetime
 import json
 import os
 from slugify import slugify
+from jinja2 import utils
 import subprocess
 import frontmatter
 import time
@@ -117,6 +118,9 @@ class AutomationContainer:
         print("Updating session presentations...")
         self.update_presentations(
             "{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
+        print("Updating the resources.json file...")
+        self.s3_interface.update()
+        print("resources.json file updated...")
 
     def get_environment_variables(self, accepted_variables):
         """Gets an environment variables that have been set i.e bamboo_sched_password"""
@@ -297,6 +301,10 @@ class AutomationContainer:
             "https://github.com/linaro/connect", self.work_directory, "/app", full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
         return github_manager
 
+    def escape_string(self, string):
+        """Prevent XSS attacks"""
+        return str(utils.escape(string))
+
     def update_jekyll_posts(self):
 
         current_posts = self.get_list_of_files_in_dir_based_on_ext("{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower()),".md")
@@ -326,12 +334,12 @@ class AutomationContainer:
             if speakers:
                 for speaker in speakers:
                     new_speaker = {
-                        "speaker_name": speaker["name"],
-                        "speaker_position": speaker["position"],
-                        "speaker_company": speaker["company"],
-                        "speaker_image": speaker["avatar"],
-                        "speaker_bio": "{}".format(speaker["about"]),
-                        "speaker_role": speaker["role"]
+                        "speaker_name": self.escape_string(speaker["name"]),
+                        "speaker_position": self.escape_string(speaker["position"]),
+                        "speaker_company": self.escape_string(speaker["company"]),
+                        "speaker_image": self.escape_string(speaker["avatar"]),
+                        "speaker_bio": self.escape_string("{}".format(speaker["about"])),
+                        "speaker_role": self.escape_string(speaker["role"])
                     }
                     new_speakers.append(new_speaker)
 
