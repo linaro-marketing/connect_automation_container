@@ -2,8 +2,10 @@
 
 import argparse
 import datetime
+import json
 import os
 from slugify import slugify
+from jinja2 import utils
 import subprocess
 import frontmatter
 import time
@@ -39,6 +41,7 @@ class AutomationContainer:
         self.accepted_variables = [
             "bamboo_sched_password",
             "bamboo_sched_url",
+            "bamboo_event_keys",
             "bamboo_connect_uid",
             "bamboo_working_directory",
             "bamboo_github_access_password",
@@ -89,6 +92,8 @@ class AutomationContainer:
                 self.env["bamboo_s3_session_id"])
         elif self.args.daily_tasks:
             self.daily_tasks()
+        elif self.args.update_session:
+            self.update_sessions()
         elif self.args.social_images:
             self.social_media_images()
         elif self.args.upload_presentations:
@@ -96,6 +101,26 @@ class AutomationContainer:
                 "{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
         else:
             print("Please provide either the --upload-video or --daily-tasks flag ")
+
+    def update_sessions(self):
+        """This runs when the flag --update-session is set."""
+        self.event_keys = json.loads(self.env["bamboo_event_keys"])
+        for event_key in self.event_keys:
+            print(event_key)
+        # Updated the Jekyll Posts.
+        self.github_manager = self.setup_github_manager()
+        print("Updating Jekyll Posts...")
+        self.post_tool = JekyllPostTool(
+            {"output": "{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())}, verbose=True)
+        self.update_jekyll_posts()
+        # Download / Upload presentations
+        self.social_media_images()
+        print("Updating session presentations...")
+        self.update_presentations(
+            "{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
+        print("Updating the resources.json file...")
+        self.s3_interface.update()
+        print("resources.json file updated...")
 
     def get_environment_variables(self, accepted_variables):
         """Gets an environment variables that have been set i.e bamboo_sched_password"""
@@ -155,7 +180,8 @@ class AutomationContainer:
             # Set the session_abstract for the youtube video description
             session_abstract = session_data["description"].replace("<br>","\n").replace("<br/>", "\n")
             # Craft the session url
-            connect_website_url = "https://connect.linaro.org/resources/{}/session/{}/".format("bud20", "bud20-215")
+            connect_website_url = "https://connect.linaro.org/resources/{}/session/{}/".format(
+                self.env["bamboo_connect_uid"].lower(), session_id.lower())
             # Format the complete video description
             video_description = """Session Abstract
 
@@ -229,6 +255,7 @@ class AutomationContainer:
             self.run_command(
                 "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
             print()
+
     def update_presentations(self, presentation_directory, other_files_directory):
 
         """
@@ -272,7 +299,12 @@ class AutomationContainer:
         self.run_command("chmod 400 {}".format(full_ssh_path))
         github_manager = GitHubManager(
             "https://github.com/linaro/connect", self.work_directory, "/app", full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
+
         return github_manager
+
+    def escape_string(self, string):
+        """Prevent XSS attacks"""
+        return str(utils.escape(string))
 
     def update_jekyll_posts(self):
 
@@ -286,6 +318,7 @@ class AutomationContainer:
         current_date = datetime.datetime.now().strftime("%y%m%d-%H%M")
 
         for session in self.json_data.values():
+
             session_image = {
                 "path": "{}/connect/{}/images/{}.png".format(self.cdn_url, self.env["bamboo_connect_uid"].lower(), session["session_id"]),
                 "featured": "true"
@@ -303,20 +336,33 @@ class AutomationContainer:
             if speakers:
                 for speaker in speakers:
                     new_speaker = {
-                        "speaker_name": speaker["name"],
-                        "speaker_position": speaker["position"],
-                        "speaker_company": speaker["company"],
-                        "speaker_image": speaker["avatar"],
-                        "speaker_bio": speaker["about"],
-                        "speaker_role": speaker["role"]
+                        "speaker_name": self.escape_string(speaker["name"]),
+                        "speaker_position": self.escape_string(speaker["position"]),
+                        "speaker_company": self.escape_string(speaker["company"]),
+                        "speaker_image": self.escape_string(speaker["avatar"]),
+                        "speaker_bio": self.escape_string("{}".format(speaker["about"])),
+                        "speaker_role": self.escape_string(speaker["role"])
                     }
                     new_speakers.append(new_speaker)
+
+            session_slot = {
+                "start_time": session["event_start"],
+                "end_time": session["event_end"],
+            }
+            try:
+                session_room = session["venue"]
+            except KeyError as e:
+                session_room = ""
+
+
             post_frontmatter = {
-                "title": session["session_id"] + " - " + session["name"],
+                "title": session["name"],
                 "session_id": session["session_id"],
                 "session_speakers": new_speakers,
                 "description": description,
                 "image": session_image,
+                "session_room": session_room,
+                "session_slot": session_slot,
                 "tags": session["event_type"],
                 "categories": [self.env["bamboo_connect_uid"].lower()],
                 "session_track": session["event_type"],
@@ -328,8 +374,9 @@ class AutomationContainer:
 
             lower_case_session_id = session["session_id"].lower()
             changed_post_path = ""
+
             for current_post_path in current_posts:
-                if lower_case_session_id in current_post_path:
+                if lower_case_session_id + ".md" in current_post_path:
                     found = True
                     # Load current front matter
                     with open(current_post_path) as current_post:
@@ -349,6 +396,8 @@ class AutomationContainer:
                         post_frontmatter, "", post_file_name, changed_post_path)
             else:
                 files_have_been_changed = True
+                print("Not found....")
+                print(lower_case_session_id)
                 print("Writing new post...")
                 post_file_name = datetime.datetime.now().strftime("%Y-%m-%d") + "-" + lower_case_session_id + ".md"
                  # Edit posts if file already exists
@@ -356,11 +405,18 @@ class AutomationContainer:
 
         # Delete sessions that don't exist in latest export
         for current_session_id in current_session_ids:
+            # Check to see if a session has been removed and if so - delete it.
             if current_session_id not in latest_session_ids:
                 files_have_been_changed = True
                 file_to_delete = self.get_list_of_files_in_dir_based_on_ext(
                     "{}/website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower()), "{}.md".format(current_session_id.lower()))[0]
-                self.run_command("rm {}".format(file_to_delete))
+                del_command = "rm {}".format(file_to_delete)
+                print(del_command)
+                self.run_command(del_command)
+
+        for latest_session_id in latest_session_ids:
+            if latest_session_id not in current_session_ids:
+                print("New session detected: ".format(latest_session_id))
 
         # Commit and create the pull request
         if self.github_manager.repo.is_dirty():
@@ -469,7 +525,7 @@ class AutomationContainer:
                             "value": session["session_id"],
                             "position": {
                                 "x": 80,
-                                "y": 340
+                                "y": 140
                             },
                             "font": {
                                 "size": 48,
@@ -488,7 +544,7 @@ class AutomationContainer:
                             "value": session["event_type"],
                             "position": {
                                 "x": 80,
-                                "y": 400
+                                "y": 200
                             },
                             "font": {
                                 "size": 28,
@@ -507,7 +563,7 @@ class AutomationContainer:
                             "value": session["session_title"],
                             "position": {
                                 "x": 80,
-                                "y": 440
+                                "y": 240
                             },
                             "font": {
                                 "size": 48,
@@ -532,6 +588,8 @@ if __name__ == '__main__':
                         help='If specified, the video upload method is executed. Requires a -u arg with the session id.')
     parser.add_argument('--daily-tasks', action='store_true',
                         help='If specified, the daily Connect automation tasks are run.')
+    parser.add_argument('--update-session', action='store_true',
+                        help='If specified, the update_session method task is run.')
     parser.add_argument('--no-upload', action='store_true',
                         help='If specified, assets are not uploaded to s3.')
     parser.add_argument('--social-images', action='store_true',
