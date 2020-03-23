@@ -400,7 +400,7 @@ class AutomationContainer:
                 print(lower_case_session_id)
                 print("Writing new post...")
                 post_file_name = datetime.datetime.now().strftime("%Y-%m-%d") + "-" + lower_case_session_id + ".md"
-                 # Edit posts if file already exi   sts
+                 # Edit posts if file already exists
                 self.post_tool.write_post(post_frontmatter, "", post_file_name)
 
         # Delete sessions that don't exist in latest export
