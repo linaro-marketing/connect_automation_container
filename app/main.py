@@ -299,6 +299,7 @@ class AutomationContainer:
         self.run_command("chmod 400 {}".format(full_ssh_path))
         github_manager = GitHubManager(
             "https://github.com/linaro/connect", self.work_directory, "/app", full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
+
         return github_manager
 
     def escape_string(self, string):
@@ -317,6 +318,7 @@ class AutomationContainer:
         current_date = datetime.datetime.now().strftime("%y%m%d-%H%M")
 
         for session in self.json_data.values():
+
             session_image = {
                 "path": "{}/connect/{}/images/{}.png".format(self.cdn_url, self.env["bamboo_connect_uid"].lower(), session["session_id"]),
                 "featured": "true"
@@ -354,7 +356,7 @@ class AutomationContainer:
 
 
             post_frontmatter = {
-                "title": session["session_id"] + " - " + session["name"],
+                "title": session["name"],
                 "session_id": session["session_id"],
                 "session_speakers": new_speakers,
                 "description": description,
@@ -371,8 +373,8 @@ class AutomationContainer:
             changed = False
 
             lower_case_session_id = session["session_id"].lower()
-            print(lower_case_session_id)
             changed_post_path = ""
+
             for current_post_path in current_posts:
                 if lower_case_session_id + ".md" in current_post_path:
                     found = True
@@ -394,18 +396,27 @@ class AutomationContainer:
                         post_frontmatter, "", post_file_name, changed_post_path)
             else:
                 files_have_been_changed = True
+                print("Not found....")
+                print(lower_case_session_id)
                 print("Writing new post...")
                 post_file_name = datetime.datetime.now().strftime("%Y-%m-%d") + "-" + lower_case_session_id + ".md"
-                 # Edit posts if file already exists
+                 # Edit posts if file already exi   sts
                 self.post_tool.write_post(post_frontmatter, "", post_file_name)
 
         # Delete sessions that don't exist in latest export
         for current_session_id in current_session_ids:
+            # Check to see if a session has been removed and if so - delete it.
             if current_session_id not in latest_session_ids:
                 files_have_been_changed = True
                 file_to_delete = self.get_list_of_files_in_dir_based_on_ext(
                     "{}/website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower()), "{}.md".format(current_session_id.lower()))[0]
-                self.run_command("rm {}".format(file_to_delete))
+                del_command = "rm {}".format(file_to_delete)
+                print(del_command)
+                self.run_command(del_command)
+
+        for latest_session_id in latest_session_ids:
+            if latest_session_id not in current_session_ids:
+                print("New session detected: ".format(latest_session_id))
 
         # Commit and create the pull request
         if self.github_manager.repo.is_dirty():
