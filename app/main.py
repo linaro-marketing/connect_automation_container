@@ -299,7 +299,6 @@ class AutomationContainer:
         self.run_command("chmod 400 {}".format(full_ssh_path))
         github_manager = GitHubManager(
             "https://github.com/linaro/connect", self.work_directory, "/app", full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
-
         return github_manager
 
     def escape_string(self, string):
@@ -420,10 +419,10 @@ class AutomationContainer:
 
         # Commit and create the pull request
         if self.github_manager.repo.is_dirty():
-            self.github_manager.create_branch("session-update-{}".format(current_date))
-            self.github_manager.commit_and_push("Session update - {}".format(self.github_manager.repo.active_branch.name))
-            self.github_manager.create_github_pull_request("Session update for {}".format(current_date), "Session posts updated by the ConnectAutomation container.")
+            new_branch_name = "session-update-{}".format(current_date)
+            self.github_manager.create_github_pull_request(new_branch_name, "Session update for {}".format(current_date), "Session posts updated by the ConnectAutomation container.")
         else:
+            self.github_manager.run_git_command("git checkout master")
             print("No changes to push!")
 
 
