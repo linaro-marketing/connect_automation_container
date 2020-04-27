@@ -105,6 +105,7 @@ class AutomationContainer:
 
     def update_sessions(self):
         """This runs when the flag --update-session is set."""
+        start_time = time.time()
         self.event_keys = json.loads(self.env["bamboo_event_keys"])
         for event_key in self.event_keys:
             print(event_key)
@@ -115,14 +116,24 @@ class AutomationContainer:
             {"output": "{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())}, verbose=True)
         updated_posts = self.update_jekyll_posts()
         if updated_posts:
-            # Download / Upload presentations
-            self.social_media_images()
-            print("Updating session presentations...")
-            self.update_presentations(
-                "{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
-            print("Updating the resources.json file...")
-            self.s3_interface.update()
-            print("resources.json file updated...")
+            created_social_media_images = self.social_media_images()
+            if created_social_media_images:
+                print("Updating session presentations...")
+                updated_presentations = self.update_presentations(
+                    "{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
+                if updated_presentations:
+                    print("Updating the resources.json file...")
+                    updated_resources_json = self.s3_interface.update()
+                    if updated_resources_json:
+                        print("resources.json file updated...")
+                        end_time = time.time()
+                        print("Daily tasks complete in {} seconds.".format(end_time - start_time))
+                    else:
+                        sys.exit(1)
+                else:
+                    sys.exit(1)
+            else:
+                sys.exit(1)
         else:
             sys.exit(1)
 
@@ -233,32 +244,39 @@ class AutomationContainer:
 
     def generate_responsive_images(self, base_image_directory):
         print("Resizing social share images...")
-
-        # For each width in widths, generated new JPEG images
-        for width in self.responsive_image_widths:
-            print("Resizing images to {} width...".format(str(width)))
-            if not os.path.exists(base_image_directory + str(width)):
-                os.makedirs(base_image_directory + str(width))
-            # Use mogrify to generate JPG images of different sizes
-            self.run_command(
-                "mogrify -path {1}{0}/ -resize {0} -format jpg {1}*.png".format(str(width), base_image_directory))
-
+        try:
+            # For each width in widths, generated new JPEG images
+            for width in self.responsive_image_widths:
+                print("Resizing images to {} width...".format(str(width)))
+                if not os.path.exists(base_image_directory + str(width)):
+                    os.makedirs(base_image_directory + str(width))
+                # Use mogrify to generate JPG images of different sizes
+                self.run_command(
+                    "mogrify -path {1}{0}/ -resize {0} -format jpg {1}*.png".format(str(width), base_image_directory))
+            return True
+        except Exception as e:
+            print(e)
+            return True
     def upload_images_to_s3(self, base_image_directory):
         """Uploads responsive social media images generated images to s3"""
 
         print("Uploading generated social media share images to s3...")
         print("Syncing original PNG images...")
+        try:
+            self.run_command("aws s3 sync {0} s3://{1}/connect/{2}/images/".format(
+                base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
 
-        self.run_command("aws s3 sync {0} s3://{1}/connect/{2}/images/".format(
-            base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+            print("Uploading ImageMagick resized images...")
 
-        print("Uploading ImageMagick resized images...")
-
-        for width in self.responsive_image_widths:
-            print("Syncing {} width images...".format(width))
-            self.run_command(
-                "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
-            print()
+            for width in self.responsive_image_widths:
+                print("Syncing {} width images...".format(width))
+                self.run_command(
+                    "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
+                print()
+            return True
+        except Exception as e:
+            print(e)
+            return False
 
     def update_presentations(self, presentation_directory, other_files_directory):
 
@@ -270,12 +288,17 @@ class AutomationContainer:
             presentation_directory, other_files_directory, self.json_data)
         self.sched_presentation_tool.download()
         print("Uploading presentations to s3...")
-        if not self.args.no_upload:
-            self.run_command(
-                "aws s3 sync {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
-            print("Uploading other files to s3...")
-            self.run_command(
-                "aws s3 sync {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+        try:
+            if not self.args.no_upload:
+                self.run_command(
+                    "aws s3 sync {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+                print("Uploading other files to s3...")
+                self.run_command(
+                    "aws s3 sync {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+            return True
+        except Exception as e:
+            print(e)
+            return False
 
     def daily_tasks(self):
         """Handles the running of daily_tasks"""
@@ -288,14 +311,23 @@ class AutomationContainer:
         print("Creating GitHub pull request with changed Jekyll posts...")
         updated_posts = self.update_jekyll_posts()
         if updated_posts:
-            self.social_media_images()
-            print("Updating session presentations...")
-            self.update_presentations("{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
-            print("Updating the resources.json file...")
-            self.s3_interface.update()
-            print("resources.json file updated...")
-            end_time = time.time()
-            print("Daily tasks complete in {} seconds.".format(end_time-start_time))
+            created_social_media_images = self.social_media_images()
+            if created_social_media_images:
+                print("Updating session presentations...")
+                updated_presentations = self.update_presentations("{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
+                if updated_presentations:
+                    print("Updating the resources.json file...")
+                    updated_resources_json = self.s3_interface.update()
+                    if updated_resources_json:
+                        print("resources.json file updated...")
+                        end_time = time.time()
+                        print("Daily tasks complete in {} seconds.".format(end_time - start_time))
+                    else:
+                        sys.exit(1)
+                else:
+                    sys.exit(1)
+            else:
+                sys.exit(1)
         else:
             sys.exit(1)
 
@@ -468,10 +500,21 @@ class AutomationContainer:
         self.social_image_generator = SocialImageGenerator(
             {"output": "{}images/".format(self.work_directory), "template": "/app/assets/templates/{}-placeholder.jpg".format(self.env["bamboo_connect_uid"].lower()), "assets_path": "/app/assets/"})
         print("Generating Social Media Share Images...")
-        self.generate_images()
-        self.generate_responsive_images("{}images/".format(self.work_directory))
-        if self.args.no_upload != True:
-            self.upload_images_to_s3("{}images/".format(self.work_directory))
+        generated_images = self.generate_images()
+        if generated_images:
+            if generated_responsive_images:
+                generated_responsive_images = self.generate_responsive_images("{}images/".format(self.work_directory))
+                if self.args.no_upload != True:
+                    uploaded_images_to_s3 = self.upload_images_to_s3("{}images/".format(self.work_directory))
+                    if uploaded_images_to_s3:
+                        return True
+                    else:
+                        return False
+            else:
+                return False
+        else:
+            return False
+
 
     def generate_images(self):
 
@@ -591,6 +634,8 @@ class AutomationContainer:
             }
             # Generate the image
             self.social_image_generator.create_image(image_options)
+
+        return True
 
 
 if __name__ == '__main__':
