@@ -11,6 +11,7 @@ import frontmatter
 import time
 import re
 import shlex
+import sys
 from social_image_generator import SocialImageGenerator
 from sched_data_interface import SchedDataInterface
 from connect_json_updater import ConnectJSONUpdater
@@ -112,15 +113,18 @@ class AutomationContainer:
         print("Updating Jekyll Posts...")
         self.post_tool = JekyllPostTool(
             {"output": "{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())}, verbose=True)
-        self.update_jekyll_posts()
-        # Download / Upload presentations
-        self.social_media_images()
-        print("Updating session presentations...")
-        self.update_presentations(
-            "{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
-        print("Updating the resources.json file...")
-        self.s3_interface.update()
-        print("resources.json file updated...")
+        updated_posts = self.update_jekyll_posts()
+        if updated_posts:
+            # Download / Upload presentations
+            self.social_media_images()
+            print("Updating session presentations...")
+            self.update_presentations(
+                "{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
+            print("Updating the resources.json file...")
+            self.s3_interface.update()
+            print("resources.json file updated...")
+        else:
+            sys.exit(1)
 
     def get_environment_variables(self, accepted_variables):
         """Gets an environment variables that have been set i.e bamboo_sched_password"""
@@ -281,16 +285,19 @@ class AutomationContainer:
         print("Creating Jekyll Posts...")
         self.post_tool = JekyllPostTool(
             {"output": "{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())}, verbose=True)
-        self.update_jekyll_posts()
         print("Creating GitHub pull request with changed Jekyll posts...")
-        self.social_media_images()
-        print("Updating session presentations...")
-        self.update_presentations("{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
-        print("Updating the resources.json file...")
-        self.s3_interface.update()
-        print("resources.json file updated...")
-        end_time = time.time()
-        print("Daily tasks complete in {} seconds.".format(end_time-start_time))
+        updated_posts = self.update_jekyll_posts()
+        if updated_posts:
+            self.social_media_images()
+            print("Updating session presentations...")
+            self.update_presentations("{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
+            print("Updating the resources.json file...")
+            self.s3_interface.update()
+            print("resources.json file updated...")
+            end_time = time.time()
+            print("Daily tasks complete in {} seconds.".format(end_time-start_time))
+        else:
+            sys.exit(1)
 
     def setup_github_manager(self):
         secret_output_path, output_file_name = self.get_secret_from_vault(
@@ -420,10 +427,15 @@ class AutomationContainer:
         # Commit and create the pull request
         if self.github_manager.repo.is_dirty():
             new_branch_name = "session-update-{}".format(current_date)
-            self.github_manager.create_github_pull_request(new_branch_name, "Session update for {}".format(current_date), "Session posts updated by the ConnectAutomation container.")
+            created = self.github_manager.create_github_pull_request(new_branch_name, "Session update for {}".format(current_date), "Session posts updated by the ConnectAutomation container.")
+            if created:
+                return True
+            else:
+                return False
         else:
             self.github_manager.run_git_command("git checkout master")
             print("No changes to push!")
+            return True
 
 
     def get_list_of_files_in_dir_based_on_ext(self, folder, extension):
