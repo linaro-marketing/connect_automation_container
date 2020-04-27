@@ -239,8 +239,12 @@ class AutomationContainer:
         process = subprocess.Popen(
             split_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, err = process.communicate()
-        decoded_output = output.decode("utf-8")
-        print(decoded_output)
+        if process.returncode != 0:
+            print(err)
+            sys.exit(process.returncode)
+        else:
+            decoded_output = output.decode("utf-8")
+            print(decoded_output)
 
     def generate_responsive_images(self, base_image_directory):
         print("Resizing social share images...")
@@ -345,6 +349,7 @@ class AutomationContainer:
         return str(utils.escape(string))
 
     def update_jekyll_posts(self):
+
 
         current_posts = self.get_list_of_files_in_dir_based_on_ext("{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower()),".md")
 
