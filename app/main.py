@@ -502,14 +502,15 @@ class AutomationContainer:
         print("Generating Social Media Share Images...")
         generated_images = self.generate_images()
         if generated_images:
+            generated_responsive_images = self.generate_responsive_images("{}images/".format(self.work_directory))
             if generated_responsive_images:
-                generated_responsive_images = self.generate_responsive_images("{}images/".format(self.work_directory))
                 if self.args.no_upload != True:
                     uploaded_images_to_s3 = self.upload_images_to_s3("{}images/".format(self.work_directory))
                     if uploaded_images_to_s3:
                         return True
                     else:
                         return False
+                return True
             else:
                 return False
         else:
