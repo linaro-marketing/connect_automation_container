@@ -341,7 +341,7 @@ class AutomationContainer:
         full_ssh_path = secret_output_path + output_file_name
         self.run_command("chmod 400 {}".format(full_ssh_path))
         github_manager = GitHubManager(
-            "https://github.com/linaro/connect", self.work_directory, "/app", full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
+            "https://github.com/linaro/connect", self.work_directory, full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
         return github_manager
 
     def escape_string(self, string):
