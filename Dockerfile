@@ -5,7 +5,8 @@ FROM ubuntu:${UBUNTU_VERSION}
 # Software packages, any version, available after `docker build`
 ENV UNVERSIONED_PACKAGES \
 # The automation runs under the Python 3.x interpreter
- python3-minimal
+ python3-minimal\
+ rsync
 
 # Software packages, any version, unavailable after `docker build`
 ENV EPHEMERAL_UNVERSIONED_PACKAGES \
