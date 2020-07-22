@@ -240,9 +240,11 @@ class AutomationContainer:
             split_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, err = process.communicate()
         if process.returncode != 0:
+            print("Error with {} command:".format(command))
             print(err)
             sys.exit(process.returncode)
         else:
+            print("Output from '{}' command:".format(command))
             decoded_output = output.decode("utf-8")
             print(decoded_output)
 
@@ -312,11 +314,15 @@ class AutomationContainer:
         print("Creating Jekyll Posts...")
         self.post_tool = JekyllPostTool(
             {"output": "{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())}, verbose=True)
-        print("Creating GitHub pull request with changed Jekyll posts...")
-        updated_posts = self.update_jekyll_posts()
-        if updated_posts:
-            created_social_media_images = self.social_media_images()
-            if created_social_media_images:
+        print("Creating Social Media Share Images...")
+        created_social_media_images = self.social_media_images()
+        if created_social_media_images:
+            print("Syncing over share images to website directory...")
+            self.run_command("rsync -a --exclude 'circle_thumbs' --exclude '800' --exclude '300' --exclude '1200' --exclude 'images' --include '*.png' {} {}".format("{}images/".format(
+                self.work_directory), "{}website/assets/images/featured-images/{}/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())))
+            print("Creating GitHub pull request with changed Jekyll posts and images...")
+            updated_posts = self.update_jekyll_posts()
+            if updated_posts:
                 print("Updating session presentations...")
                 updated_presentations = self.update_presentations("{}presentations/".format(self.work_directory), "{}other_files/".format(self.work_directory))
                 if updated_presentations:
@@ -327,12 +333,16 @@ class AutomationContainer:
                         end_time = time.time()
                         print("Daily tasks complete in {} seconds.".format(end_time - start_time))
                     else:
+                        print("Error with updating resources.json.")
                         sys.exit(1)
                 else:
+                    print("Error with updating presentations.")
                     sys.exit(1)
             else:
+                print("Error with updating posts.")
                 sys.exit(1)
         else:
+            print("Error with creating social media images.")
             sys.exit(1)
 
     def setup_github_manager(self):
@@ -350,8 +360,7 @@ class AutomationContainer:
 
     def update_jekyll_posts(self):
 
-
-        current_posts = self.get_list_of_files_in_dir_based_on_ext("{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower()),".md")
+        current_posts = self.get_list_of_files_in_dir_based_on_ext("{}website/_posts/{}/sessions/".format(self.work_directory, self.env["bamboo_connect_uid"].lower()), ".md")
 
         latest_session_ids = list(self.json_data.keys())
         current_session_ids = self.get_current_session_ids_from_posts()
@@ -362,10 +371,7 @@ class AutomationContainer:
 
         for session in self.json_data.values():
 
-            session_image = {
-                "path": "{}/connect/{}/images/{}.png".format(self.cdn_url, self.env["bamboo_connect_uid"].lower(), session["session_id"]),
-                "featured": "true"
-            }
+            session_image = "/assets/images/featured-images/{}/{}.png".format(self.env["bamboo_connect_uid"].lower(), session["session_id"])
             try:
                 speakers = session["speakers"]
             except Exception:
@@ -462,7 +468,7 @@ class AutomationContainer:
                 print("New session detected: ".format(latest_session_id))
 
         # Commit and create the pull request
-        if self.github_manager.repo.is_dirty():
+        if self.github_manager.repo.is_dirty() or len(self.github_manager.repo.untracked_files) > 0:
             new_branch_name = "session-update-{}".format(current_date)
             created = self.github_manager.create_github_pull_request(new_branch_name, "Session update for {}".format(current_date), "Session posts updated by the ConnectAutomation container.")
             if created:
