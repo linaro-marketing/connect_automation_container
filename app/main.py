@@ -317,9 +317,9 @@ class AutomationContainer:
         print("Creating Social Media Share Images...")
         created_social_media_images = self.social_media_images()
         if created_social_media_images:
-            print("Syncing over share images to website directory...")
-            self.run_command("rsync -a --include '{}-*.png' --exclude 'circle_thumbs' --exclude '800' --exclude '300' --exclude '1200' --exclude 'images' --exclude '*.png'  {} {}".format(self.env["bamboo_connect_uid"], "{}images/".format(
-                self.work_directory), "{}website/assets/images/featured-images/{}/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())))
+            # print("Syncing over share images to website directory...")
+            # self.run_command("rsync -a --include '{}-*.png' --exclude 'circle_thumbs' --exclude '800' --exclude '300' --exclude '1200' --exclude 'images' --exclude '*.png'  {} {}".format(self.env["bamboo_connect_uid"], "{}images/".format(
+            #     self.work_directory), "{}website/assets/images/featured-images/{}/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())))
             print("Creating GitHub pull request with changed Jekyll posts and images...")
             updated_posts = self.update_jekyll_posts()
             if updated_posts:
