@@ -239,8 +239,10 @@ class AutomationContainer:
         process = subprocess.Popen(
             split_command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output, err = process.communicate()
+        decoded_output = output.decode("utf-8")
+        print(decoded_output)
         if process.returncode != 0:
-            print("Error with {} command:".format(command))
+            print("Error with {} command - exit code({}):".format(command, process.returncode))
             print(err)
             sys.exit(process.returncode)
         else:
@@ -299,6 +301,7 @@ class AutomationContainer:
                 self.run_command(
                     "aws s3 sync  --include '{3}-*.pdf' --include '{3}-*.pdf' --exclude '*'  {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), self.env["bamboo_connect_uid"]))
                 print("Uploading other files to s3...")
+                self.run_command("echo $AWS_ACCESS_KEY_ID")
                 self.run_command(
                     "aws s3 sync --include '{3}-*' --exclude '*'  {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), self.env["bamboo_connect_uid"]))
             return True
@@ -330,6 +333,10 @@ class AutomationContainer:
                     updated_resources_json = self.s3_interface.update()
                     if updated_resources_json:
                         print("resources.json file updated...")
+                        self.run_command("echo $AWS_ACCESS_KEY_ID")
+                        print("Invalidating static.linaro.org/connect/{}/* CloudFront cache...".format(self.env["bamboo_connect_uid"]))
+                        self.run_command(
+                            "aws cloudfront create-invalidation --distribution-id E374OER1SABFCK --paths '/connect/{}/*'".format(self.env["bamboo_connect_uid"]))
                         end_time = time.time()
                         print("Daily tasks complete in {} seconds.".format(end_time - start_time))
                     else:
