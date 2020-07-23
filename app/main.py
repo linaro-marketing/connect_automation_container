@@ -269,15 +269,15 @@ class AutomationContainer:
         print("Uploading generated social media share images to s3...")
         print("Syncing original PNG images...")
         try:
-            self.run_command("aws s3 sync {0} s3://{1}/connect/{2}/images/".format(
-                base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+            self.run_command("aws s3 sync --include '{3}-*.png' --include '{3}-*.jpg' --exclude '*.png' --exclude '*.jpg' {0} s3://{1}/connect/{2}/images/".format(
+                base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), self.env["bamboo_connect_uid"]))
 
             print("Uploading ImageMagick resized images...")
 
             for width in self.responsive_image_widths:
                 print("Syncing {} width images...".format(width))
                 self.run_command(
-                    "aws s3 sync {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width))
+                    "aws s3 sync --include '{4}-*.jpg' --exclude '*.jpg' {0}/{3}/ s3://{1}/connect/{2}/images/{3}/".format(base_image_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), width, self.env["bamboo_connect_uid"]))
                 print()
             return True
         except Exception as e:
@@ -297,10 +297,10 @@ class AutomationContainer:
         try:
             if not self.args.no_upload:
                 self.run_command(
-                    "aws s3 sync {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+                    "aws s3 sync  --include '{3}-*.pdf' --include '{3}-*.pdf' --exclude '*'  {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), self.env["bamboo_connect_uid"]))
                 print("Uploading other files to s3...")
                 self.run_command(
-                    "aws s3 sync {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower()))
+                    "aws s3 sync --include '{3}-*' --exclude '*'  {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), self.env["bamboo_connect_uid"]))
             return True
         except Exception as e:
             print(e)
@@ -317,9 +317,9 @@ class AutomationContainer:
         print("Creating Social Media Share Images...")
         created_social_media_images = self.social_media_images()
         if created_social_media_images:
-            # print("Syncing over share images to website directory...")
-            # self.run_command("rsync -a --include '{}-*.png' --exclude 'circle_thumbs' --exclude '800' --exclude '300' --exclude '1200' --exclude 'images' --exclude '*.png'  {} {}".format(self.env["bamboo_connect_uid"], "{}images/".format(
-            #     self.work_directory), "{}website/assets/images/featured-images/{}/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())))
+            print("Syncing over share images to website directory...")
+            self.run_command("rsync -a --include '{}-*.png' --exclude 'circle_thumbs' --exclude '800' --exclude '300' --exclude '1200' --exclude 'images' --exclude '*.png'  {} {}".format(self.env["bamboo_connect_uid"], "{}images/".format(
+                self.work_directory), "{}website/assets/images/featured-images/{}/".format(self.work_directory, self.env["bamboo_connect_uid"].lower())))
             print("Creating GitHub pull request with changed Jekyll posts and images...")
             updated_posts = self.update_jekyll_posts()
             if updated_posts:
