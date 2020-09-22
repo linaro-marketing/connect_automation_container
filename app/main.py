@@ -19,7 +19,7 @@ from jekyll_post_tool import JekyllPostTool
 from sched_presentation_tool import SchedPresentationTool
 from connect_youtube_uploader import ConnectYoutubeUploader
 import vault_auth
-from github_automation import GitHubManager
+from github_manager import GitHubManager
 
 VAULT_URL = "https://login.linaro.org:8200"
 VAULT_ROLE = "vault_connect_automation"
@@ -299,10 +299,10 @@ class AutomationContainer:
         try:
             if not self.args.no_upload:
                 self.run_command(
-                    "aws s3 sync  --include '{3}-*.pdf' --include '{3}-*.pdf' --exclude '*'  {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), self.env["bamboo_connect_uid"]))
+                    "aws s3 sync --exclude '*' --include '{3}-*.pdf'  {0} s3://{1}/connect/{2}/presentations/".format(presentation_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), self.env["bamboo_connect_uid"]))
                 print("Uploading other files to s3...")
                 self.run_command(
-                    "aws s3 sync --include '{3}-*' --exclude '*'  {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), self.env["bamboo_connect_uid"]))
+                    "aws s3 sync --exclude '*' --include '{3}-*'  {0} s3://{1}/connect/{2}/other_files/".format(other_files_directory, self.static_bucket, self.env["bamboo_connect_uid"].lower(), self.env["bamboo_connect_uid"]))
             return True
         except Exception as e:
             print(e)
@@ -353,10 +353,17 @@ class AutomationContainer:
     def setup_github_manager(self):
         secret_output_path, output_file_name = self.get_secret_from_vault(
             "secret/misc/linaro-build-github.pem", "linaro-build-github.pem")
+        secret = vault_auth.get_secret(
+            "secret/github/linaro-build",
+            iam_role=VAULT_ROLE,
+            url=VAULT_URL
+        )
+        github_api_access_key =  secret["data"]["pat"]
+        print(github_api_access_key)
         full_ssh_path = secret_output_path + output_file_name
         self.run_command("chmod 400 {}".format(full_ssh_path))
         github_manager = GitHubManager(
-            "https://github.com/linaro/connect", self.work_directory, full_ssh_path, self.env["bamboo_github_access_password"], self.github_reviewers)
+            "https://github.com/linaro/connect", self.work_directory, full_ssh_path, github_api_access_key, self.github_reviewers, "{}-session-update".format(self.env["bamboo_connect_uid"].lower()))
         return github_manager
 
     def escape_string(self, string):
@@ -474,8 +481,7 @@ class AutomationContainer:
 
         # Commit and create the pull request
         if self.github_manager.repo.is_dirty() or len(self.github_manager.repo.untracked_files) > 0:
-            new_branch_name = "session-update-{}".format(current_date)
-            created = self.github_manager.create_github_pull_request(new_branch_name, "Session update for {}".format(current_date), "Session posts updated by the ConnectAutomation container.")
+            created = self.github_manager.create_github_pull_request("Session update for {}".format(current_date), "Session posts updated by the ConnectAutomation container.")
             if created:
                 return True
             else:
