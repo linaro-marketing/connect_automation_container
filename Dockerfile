@@ -55,7 +55,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     git+https://github.com/linaro-marketing/SchedDataInterface.git@master \
     git+https://github.com/linaro-marketing/SocialMediaImageGenerator.git \
     git+https://github.com/linaro-marketing/connect_youtube_uploader.git \
-    git+https://github.com/linaro-marketing/github_automation.git \
     git+https://github.com/linaro-marketing/SchedPresentationTool.git \
     git+https://github.com/linaro-its/vault_auth.git@master \
     && \
