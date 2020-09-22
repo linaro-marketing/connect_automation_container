@@ -79,10 +79,10 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     /var/lib/apt/lists/*
 
 # Install ImageMagick and git cli
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y git && \
-    apt-get install -y imagemagick
+RUN apt-get update --fix-missing && \
+    apt-get upgrade -y  --fix-missing && \
+    apt-get install -y git --fix-missing && \
+    apt-get install -y imagemagick --fix-missing
 
 # Add a new user with home directory and set
 # up the required environment
