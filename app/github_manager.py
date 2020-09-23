@@ -70,11 +70,11 @@ class GitHubManager:
         if self.change_branch in repo_heads_names:
             print("Branch found...")
             self.run_git_command("git checkout {}".format(self.change_branch))
+            # Pull the latest changes once we've checked out the change branch.
+            self.run_git_command("git pull origin {}".format(self.change_branch))
         else:
             print("Creating branch...")
             self.run_git_command("git checkout -b {}".format(self.change_branch))
-        # Pull the latest changes once we've checked out the change branch.
-        self.run_git_command("git pull origin {}".format(self.change_branch))
         # Return the repo object
         return repo
 
