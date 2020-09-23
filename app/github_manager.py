@@ -60,7 +60,6 @@ class GitHubManager:
                     self.github_repo_key), in_repo_directory=False)
             os.chdir(self.working_dir)
         print("Pulling repository...")
-        self.run_git_command("git checkout master")
         self.run_git_command("git pull")
         # Once the repo is cloned / pulled then instantiate a new Repo Object
         repo = Repo(self.repo_dir)
@@ -74,6 +73,8 @@ class GitHubManager:
         else:
             print("Creating branch...")
             self.run_git_command("git checkout -b {}".format(self.change_branch))
+        # Pull the latest changes once we've checked out the change branch.
+        self.run_git_command("git pull origin {}".format(self.change_branch))
         # Return the repo object
         return repo
 
@@ -81,12 +82,11 @@ class GitHubManager:
         """ Create a GitHub pull request with the latest Connect Jekyll posts"""
         # Only use run_git_command when we need the SSH key involved.
         print("Committing and pushing latest changes to remote head: {}".format(self.repo.active_branch.name))
-        # self.run_git_command("git pull origin {}".format(self.repo.active_branch.name))
         self.run_repo_command("git add --all")
         self.run_repo_command(
             "git commit -m '{}'".format(commit_message))
         self.run_git_command(
-            "git push -f --set-upstream origin {}".format(self.repo.active_branch.name))
+            "git push --set-upstream origin {}".format(self.repo.active_branch.name))
 
         headers = {'Authorization': 'token {}'.format(self.auth_token)}
         # Pull request API URL
