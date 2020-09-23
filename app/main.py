@@ -481,7 +481,7 @@ class AutomationContainer:
 
         # Commit and create the pull request
         if self.github_manager.repo.is_dirty() or len(self.github_manager.repo.untracked_files) > 0:
-            created = self.github_manager.create_github_pull_request("Session update for {}".format(current_date), "Session posts updated by the ConnectAutomation container.")
+            created = self.github_manager.create_update_pull_request("Connect Automation Updates", "Session posts updated by the Connect Automation Docker Container.", "Event updates as of {}".format(current_date))
             if created:
                 return True
             else:
