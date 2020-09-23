@@ -50,10 +50,7 @@ class GitHubManager:
 
     def setup_repo(self):
         """Clones or pulls the repo specified in the constructor"""
-        if os.path.isdir(self.repo_dir):
-            print("Pulling repository...")
-            self.run_git_command("git pull")
-        else:
+        if not os.path.isdir(self.repo_dir):
             # Make sure we are in the working directory
             os.chdir(self.working_dir)
             print("Cloning repository...")
@@ -62,6 +59,9 @@ class GitHubManager:
                 "git clone git@github.com:{}.git website".format(
                     self.github_repo_key), in_repo_directory=False)
             os.chdir(self.working_dir)
+        print("Pulling repository...")
+        self.run_git_command("git checkout master")
+        self.run_git_command("git pull")
         # Once the repo is cloned / pulled then instantiate a new Repo Object
         repo = Repo(self.repo_dir)
         print("Verifying branch exists...")
@@ -80,25 +80,20 @@ class GitHubManager:
     def create_update_pull_request(self, title, body, commit_message):
         """ Create a GitHub pull request with the latest Connect Jekyll posts"""
         # Only use run_git_command when we need the SSH key involved.
+        print("Committing and pushing latest changes to remote head: {}".format(self.repo.active_branch.name))
+        # self.run_git_command("git pull origin {}".format(self.repo.active_branch.name))
         self.run_repo_command("git add --all")
         self.run_repo_command(
             "git commit -m '{}'".format(commit_message))
         self.run_git_command(
-            "git push --set-upstream origin {}".format(self.repo.active_branch.name))
-
-        data = {
-            "title": title,
-            "body": body,
-            "head": self.repo.active_branch.name,
-            "base": "master"
-        }
+            "git push -f --set-upstream origin {}".format(self.repo.active_branch.name))
 
         headers = {'Authorization': 'token {}'.format(self.auth_token)}
         # Pull request API URL
         url = "https://api.github.com/repos/{}/pulls".format(
             self.github_repo_key)
         # Get the current pull requests to check a PR is not already open
-        current_pull_requests = requests.get(url, json=data, headers=headers)
+        current_pull_requests = requests.get(url, headers=headers)
         if current_pull_requests.status_code != 200:
             print("ERROR: Failed to get list of current pull requests")
             print(current_pull_requests.text)
@@ -106,28 +101,44 @@ class GitHubManager:
             return False
         else:
             print("Current pull requests:")
-            json = result.json()
-            print(json)
-        result = requests.post(url, json=data, headers=headers)
-        if result.status_code != 201:
-            print("ERROR: Failed to create pull request")
-            print(result.text)
-            self.error = True
-            return False
-        else:
-            json = result.json()
-            print("Pull request created: {}".format(json["html_url"]))
+            json = current_pull_requests.json()
+            pull_open = False
+            for pull in json:
+                if pull["head"]["ref"] == self.repo.active_branch.name:
+                    pull_open = True 
+        if not pull_open:
             data = {
-                "reviewers": self.reviewers
+                "title": title,
+                "body": body,
+                "head": self.repo.active_branch.name,
+                "base": "master"
             }
-            url = "https://api.github.com/repos/{0}/pulls/{1}/requested_reviewers".format(
-                self.github_repo_key, json["number"])
-
             result = requests.post(url, json=data, headers=headers)
-
             if result.status_code != 201:
-                print("ERROR: Failed to add reviewers to the pull request")
+                print("ERROR: Failed to create pull request")
                 print(result.text)
                 self.error = True
                 return False
+            else:
+                json = result.json()
+                print("Pull request created: {}".format(json["html_url"]))
+                data = {
+                    "reviewers": self.reviewers
+                }
+                url = "https://api.github.com/repos/{0}/pulls/{1}/requested_reviewers".format(
+                    self.github_repo_key, json["number"])
+                result = requests.post(url, json=data, headers=headers)
+                if result.status_code != 201:
+                    print("ERROR: Failed to add reviewers to the pull request")
+                    print(result.text)
+                    self.error = True
+                    return False
+
+        # Fix for https://stackoverflow.com/questions/36984371/your-configuration-specifies-to-merge-with-the-branch-name-from-the-remote-bu
+        # Remove the local branch so that git pull doesn't complain that the remote head doesn't exist if the branch is deleted.
+        last_active_branch = self.repo.active_branch.name
+        print("Checking out master...")
+        self.run_repo_command("git checkout master")
+        print("Deleting local update branch...")
+        self.run_repo_command("git branch -D {}".format(last_active_branch))
         return True
