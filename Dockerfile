@@ -55,7 +55,6 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     git+https://github.com/linaro-marketing/SchedDataInterface.git@master \
     git+https://github.com/linaro-marketing/SocialMediaImageGenerator.git \
     git+https://github.com/linaro-marketing/connect_youtube_uploader.git \
-    git+https://github.com/linaro-marketing/github_automation.git \
     git+https://github.com/linaro-marketing/SchedPresentationTool.git \
     git+https://github.com/linaro-its/vault_auth.git@master \
     && \
@@ -79,10 +78,10 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     /var/lib/apt/lists/*
 
 # Install ImageMagick and git cli
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y git && \
-    apt-get install -y imagemagick
+RUN apt-get update --fix-missing && \
+    apt-get upgrade -y  --fix-missing && \
+    apt-get install -y git --fix-missing && \
+    apt-get install -y imagemagick --fix-missing
 
 # Add a new user with home directory and set
 # up the required environment
