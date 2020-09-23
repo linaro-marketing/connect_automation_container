@@ -52,38 +52,37 @@ class GitHubManager:
         """Clones or pulls the repo specified in the constructor"""
         if os.path.isdir(self.repo_dir):
             print("Pulling repository...")
-            try:
-                self.run_git_command("git pull")
-            except Exception as e:
-                pass
+            self.run_git_command("git pull")
         else:
             # Make sure we are in the working directory
             os.chdir(self.working_dir)
-            print("Cloning website repository")
+            print("Cloning repository...")
             print("Running git clone {}".format(self.github_repo))
             self.run_git_command(
                 "git clone git@github.com:{}.git website".format(
                     self.github_repo_key), in_repo_directory=False)
             os.chdir(self.working_dir)
+        # Once the repo is cloned / pulled then instantiate a new Repo Object
         repo = Repo(self.repo_dir)
         print("Verifying branch exists...")
-        try:
-            result = repo.git.rev_parse('--verify', self.change_branch)
-            print(result)
+        # Get a list of branch names
+        repo_heads_names = [h.name for h in repo.branches]
+        # Loop over currnet branches to check if 
+        if self.change_branch in repo_heads_names:
+            print("Branch found...")
             self.run_git_command("git checkout {}".format(self.change_branch))
-        except Exception as e:
-            print(e)
-            print("Error branch doesn't exist so creating one..")
-            if repo.active_branch.name != self.change_branch:
-                self.run_git_command("git checkout -b {}".format(self.change_branch))
+        else:
+            print("Creating branch...")
+            self.run_git_command("git checkout -b {}".format(self.change_branch))
+        # Return the repo object
         return repo
 
-    def create_github_pull_request(self, title, body):
+    def create_update_pull_request(self, title, body, commit_message):
         """ Create a GitHub pull request with the latest Connect Jekyll posts"""
         # Only use run_git_command when we need the SSH key involved.
         self.run_repo_command("git add --all")
         self.run_repo_command(
-            "git commit -m 'Session update for {}'".format(self.repo.active_branch.name))
+            "git commit -m '{}'".format(commit_message))
         self.run_git_command(
             "git push --set-upstream origin {}".format(self.repo.active_branch.name))
 
@@ -95,10 +94,21 @@ class GitHubManager:
         }
 
         headers = {'Authorization': 'token {}'.format(self.auth_token)}
+        # Pull request API URL
         url = "https://api.github.com/repos/{}/pulls".format(
             self.github_repo_key)
+        # Get the current pull requests to check a PR is not already open
+        current_pull_requests = requests.get(url, json=data, headers=headers)
+        if current_pull_requests.status_code != 200:
+            print("ERROR: Failed to get list of current pull requests")
+            print(current_pull_requests.text)
+            self.error = True
+            return False
+        else:
+            print("Current pull requests:")
+            json = result.json()
+            print(json)
         result = requests.post(url, json=data, headers=headers)
-
         if result.status_code != 201:
             print("ERROR: Failed to create pull request")
             print(result.text)
