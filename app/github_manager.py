@@ -60,6 +60,7 @@ class GitHubManager:
                     self.github_repo_key), in_repo_directory=False)
             os.chdir(self.working_dir)
         print("Pulling repository...")
+        self.run_git_command("git checkout master")
         self.run_git_command("git pull")
         # Once the repo is cloned / pulled then instantiate a new Repo Object
         repo = Repo(self.repo_dir)
