@@ -38,131 +38,136 @@ class GitHubManager:
         self.run_command(command)
         os.chdir(self.working_dir)
 
-    def run_git_command(self, command, in_repo_directory=True):
+    def run_git_command(self, command):
         """ Run a git command on the repo """
-        if in_repo_directory:
-            os.chdir(self.repo_dir)
+        # Make sure we are in the repo directory.
+        os.chdir(self.repo_dir)
         git_cmd = 'ssh-add "{}"; {}'.format(self.ssh_key_path, command)
         full_cmd = "ssh-agent bash -c '{}'".format(git_cmd)
         print("running {}".format(full_cmd))
         self.run_command(full_cmd)
-        if in_repo_directory:
-            os.chdir(self.working_dir)
+        # Change back into the working directory
+        os.chdir(self.working_dir)
 
     def setup_repo(self):
-        """Clones or pulls the repo specified in the constructor"""
-        try:
-            if not os.path.isdir(self.repo_dir):
-                    # Make sure we are in the working directory
-                    os.chdir(self.working_dir)
-                    print("Cloning repository...")
-                    print("Running git clone {}".format(self.github_repo))
-                    self.run_git_command(
-                        "git clone git@github.com:{}.git website".format(
-                            self.github_repo_key), in_repo_directory=False)
-                    os.chdir(self.working_dir)
-                print("Pulling repository...")
-                self.run_git_command("git checkout master")
-                self.run_git_command("git pull")
-                # Once the repo is cloned / pulled then instantiate a new Repo Object
-                repo = Repo(self.repo_dir)
-                print("Verifying branch exists...")
-                # Get a list of branch names
-                repo_heads_names = [h.name for h in repo.branches]
-            # Loop over currnet branches to check if 
-            if self.change_branch in repo_heads_names:
-                print("Branch found...")
-                self.branch_created = False
-                self.run_git_command("git checkout {}".format(self.change_branch))
-                # Pull the latest changes once we've checked out the change branch.
-                self.run_git_command("git pull")
-            else:
-                print("Creating branch...")
-                self.run_git_command("git checkout -b {}".format(self.change_branch))
-                self.branch_created = True
-            return repo
-
-        except Exception as e:
-            if self.branch_created:
-                self.run_repo_command("git checkout master")
+        """
+        1. Clone the repo if it doesn't already exist.
+        2. If it exists:
+            - Ensure we are on the master first.
+            - Delete any local version of the change branch.
+            - Make sure the local change branch is up to date with the remote version if it exists
+            - If not then checkout a new clean branch off of master
+        """
+        # Check to see if the repo directory exists.
+        if not os.path.isdir(self.repo_dir):
+            # Make sure we are in the working directory.
+            print("Cloning repo...")
+            self.run_git_command("git clone git@github.com:{}.git website".format(self.github_repo_key))
+        else:
+            # Repo is already cloned so make sure we are on the master branch
+            self.run_git_command("git checkout master")
+            # Fetch latest version of branches
+            print("Fetch latest changes...")
+            self.run_git_command("git fetch")
+        # Instanitate a new Repo object
+        repo = Repo(self.repo_dir)
+        # Get a list of branch names
+        repo_heads_names = [h.name for h in repo.branches]
+        print("Verifying branch exists...")
+        if self.change_branch in repo_heads_names:
+            print("{} has been found.".format(self.change_branch))
+            # Change branch exists so let's delete and fetch any upstream changes.
+            try:
                 self.run_git_command("git branch -D {}".format(self.change_branch))
-            else:
-                self.run_git_command("git fetch origin")
-                self.run_git_command("git reset --hard origin/{}".format(self.change_branch))
-            sys.exit(1)
-        # Return the repo object
+                print("Local {} branch has been deleted.".format(self.change_branch))
+            except Exception as e:
+                pass
+            print("Checking out {}.".format(self.change_branch))
+            self.run_git_command("git checkout -b {}".format(self.change_branch))
+            print("Pulling any upstream changes.")
+            self.run_git_command("git pull origin {}".format(self.change_branch))
+        else:
+            print("Creating branch...")
+            self.run_git_command("git checkout -b {}".format(self.change_branch))
+        
+        return repo
 
-    def create_update_pull_request(self, title, body, commit_message):
-        """ Create a GitHub pull request with the latest Connect Jekyll posts"""
-        # Only use run_git_command when we need the SSH key involved.
-        print("Committing and pushing latest changes to remote head: {}".format(self.repo.active_branch.name))
+    def commit_and_push_changes(self, commit_message):
+        """
+        Commits and pushes any local changes that have been made.
+        If changes have been pushed successfully, then reutnr True.
+        Else return false
+        """
         try:
             self.run_repo_command("git add --all")
-            self.run_repo_command(
-                "git commit -m '{}'".format(commit_message))
-            self.run_git_command(
-                "git push --set-upstream origin {}".format(self.repo.active_branch.name))
+            self.run_repo_command("git commit -m '{}'".format(commit_message))
+            print("Pushing local changes to origin/{}".format(self.change_branch))
+            self.run_git_command("git push origin {}".format(self.repo.active_branch.name))
+            return True
+        except Exception as e:
+            print("An exception occured when committing and pushing changes!")
+            print(e)
+            return False
 
-            headers = {'Authorization': 'token {}'.format(self.auth_token)}
-            # Pull request API URL
-            url = "https://api.github.com/repos/{}/pulls".format(
-                self.github_repo_key)
-            # Get the current pull requests to check a PR is not already open
-            current_pull_requests = requests.get(url, headers=headers)
-            if current_pull_requests.status_code != 200:
-                print("ERROR: Failed to get list of current pull requests")
-                print(current_pull_requests.text)
-                self.error = True
-                return False
-            else:
-                print("Current pull requests:")
-                json = current_pull_requests.json()
-                pull_open = False
-                for pull in json:
-                    if pull["head"]["ref"] == self.repo.active_branch.name:
-                        pull_open = True 
+    def create_pull_request(self, title, description):
+        """
+        Creates a new pull request if one doesn't already exist.
+        """
+        # Set Authorization header for API call
+        headers = {'Authorization': 'token {}'.format(self.auth_token)}
+        # Pull request API URL
+        url = "https://api.github.com/repos/{}/pulls".format(self.github_repo_key)
+        # Get the current pull requests to check a PR is not already open
+        current_pull_requests = requests.get(url, headers=headers)
+        # Check that the status code returned is not erroneous
+        if current_pull_requests.status_code != 200:
+            print("ERROR: Failed to get list of current pull requests")
+            print(current_pull_requests.text)
+            self.error = True
+            return False
+        # Request successfully returned a JSON object
+        else:
+            json = current_pull_requests.json()
+            # Loop over the pull requests checking for self.change_branch
+            pull_open = False
+            for pull in json:
+                if pull["head"]["ref"] == self.repo.active_branch.name:
+                    pull_open = True 
+            # Create a new pull request since one is not currently open
             if not pull_open:
+                # Set the data payload
                 data = {
                     "title": title,
                     "body": body,
                     "head": self.repo.active_branch.name,
                     "base": "master"
                 }
+                # Post the data to the GitHub API
                 result = requests.post(url, json=data, headers=headers)
+                # Check for an erroneous response
                 if result.status_code != 201:
                     print("ERROR: Failed to create pull request")
                     print(result.text)
                     self.error = True
                     return False
+                # Pull Request has been created successfully.
                 else:
+                    # Get the returned JSON data
                     json = result.json()
                     print("Pull request created: {}".format(json["html_url"]))
+                    # Set the reviewers data payload.
                     data = {
                         "reviewers": self.reviewers
                     }
+                    # API URL for adding reviewers.
                     url = "https://api.github.com/repos/{0}/pulls/{1}/requested_reviewers".format(
                         self.github_repo_key, json["number"])
+                    # Submit request to add reviewers
                     result = requests.post(url, json=data, headers=headers)
                     if result.status_code != 201:
                         print("ERROR: Failed to add reviewers to the pull request")
                         print(result.text)
                         self.error = True
                         return False
-
-            # Fix for https://stackoverflow.com/questions/36984371/your-configuration-specifies-to-merge-with-the-branch-name-from-the-remote-bu
-            # Remove the local branch so that git pull doesn't complain that the remote head doesn't exist if the branch is deleted.
-            last_active_branch = self.repo.active_branch.name
-            print("Checking out master...")
-            self.run_repo_command("git checkout master")
-            print("Deleting local update branch...")
-            self.run_repo_command("git branch -D {}".format(last_active_branch))
-            return True
-        except Exception as e:
-            if self.branch_created:
-                self.run_repo_command("git checkout master")
-                self.run_git_command("git branch -D {}".format(self.change_branch))
-            else:
-                self.run_git_command("git fetch origin")
-                self.run_git_command("git reset --hard origin/{}".format(self.change_branch))
-            print(e)
-            sys.exit(1)
+                    else:
+                        print("Reviewers ({}) have been added succesfully!".format(self.reviewers))
