@@ -481,16 +481,17 @@ class AutomationContainer:
 
         # Commit and create the pull request
         if self.github_manager.repo.is_dirty() or len(self.github_manager.repo.untracked_files) > 0:
-            created = self.github_manager.create_update_pull_request("Connect Automation Updates", "Session posts updated by the Connect Automation Docker Container.", "Event updates as of {}".format(current_date))
-            if created:
+            # Commit the local changes
+            committed = self.github_manager.commit_and_push_changes("Event updates as of {}".format(current_date))
+            # If committed successfully then attempt to create a pull request if neccessary
+            if committed:
+                self.github_manager.create_pull_request("Connect Automation Updates", "Session posts updated by the Connect Automation Docker Container.")
                 return True
             else:
                 return False
         else:
-            self.github_manager.run_git_command("git checkout master")
             print("No changes to push!")
             return True
-
 
     def get_list_of_files_in_dir_based_on_ext(self, folder, extension):
         file_list = []
