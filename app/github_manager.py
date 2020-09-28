@@ -19,7 +19,7 @@ class GitHubManager:
         self.branch_created = False
         self.reviewers = reviewers
         self.repo_output_name = "website"
-        self.repo_dir = "{}/{}".format(self.working_dir, self.repo_output_name)
+        self.repo_dir = "{}{}".format(self.working_dir, self.repo_output_name)
         self.repo = self.setup_repo()
 
     def run_command(self, command):
@@ -38,15 +38,19 @@ class GitHubManager:
         self.run_command(command)
         os.chdir(self.working_dir)
 
-    def run_git_command(self, command):
+    def run_git_command(self, command, repo_dir=False):
         """ Run a git command on the repo """
         # Make sure we are in the repo directory.
-        os.chdir(self.repo_dir)
+        if not repo_dir:
+            os.chdir(self.repo_dir)
+        else:
+            os.chdir(self.working_dir)
         git_cmd = 'ssh-add "{}"; {}'.format(self.ssh_key_path, command)
         full_cmd = "ssh-agent bash -c '{}'".format(git_cmd)
         print("running {}".format(full_cmd))
         self.run_command(full_cmd)
         # Change back into the working directory
+        # os.chdir(self.working_dir)
         os.chdir(self.working_dir)
 
     def setup_repo(self):
@@ -60,9 +64,12 @@ class GitHubManager:
         """
         # Check to see if the repo directory exists.
         if not os.path.isdir(self.repo_dir):
+            os.mkdir("website")
             # Make sure we are in the working directory.
+            # os.chdir(self.working_dir)
             print("Cloning repo...")
-            self.run_git_command("git clone git@github.com:{}.git website".format(self.github_repo_key))
+            self.run_git_command("git clone git@github.com:{}.git website".format(self.github_repo_key), True)
+            # os.chdir(self.working_dir)
         else:
             # Repo is already cloned so make sure we are on the master branch
             self.run_git_command("git checkout master")
@@ -73,6 +80,7 @@ class GitHubManager:
         repo = Repo(self.repo_dir)
         # Get a list of branch names
         repo_heads_names = [h.name for h in repo.branches]
+        print(repo_heads_names)
         print("Verifying branch exists...")
         if self.change_branch in repo_heads_names:
             print("{} has been found.".format(self.change_branch))
@@ -135,10 +143,11 @@ class GitHubManager:
                     pull_open = True 
             # Create a new pull request since one is not currently open
             if not pull_open:
+                print("Creating pull request...")
                 # Set the data payload
                 data = {
                     "title": title,
-                    "body": body,
+                    "body": description,
                     "head": self.repo.active_branch.name,
                     "base": "master"
                 }
