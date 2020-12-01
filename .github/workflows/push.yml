@@ -1,0 +1,23 @@
+name: PushAction
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: [ self-hosted ]
+    steps:
+      - name: Cancel previous runs
+        uses: n1hility/cancel-previous-runs@v2
+        with: 
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch git repository
+        uses: actions/checkout@v2
+
+      - name: Build container image
+        run: |
+          cd $GITHUB_WORKSPACE
+          docker build --no-cache --force-rm -t "linaroits/connect-automation" .
+  
