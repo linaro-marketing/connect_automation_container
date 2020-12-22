@@ -2,6 +2,10 @@ name: PushAction
 on:
   push:
     branches: [ master ]
+    paths-ignore:
+      - .github/workflows/daily_tasks.yml
+      - .github/workflows/lambda.yml
+      - .github/workflows/sched.yml
   workflow_dispatch:
 
 jobs:
