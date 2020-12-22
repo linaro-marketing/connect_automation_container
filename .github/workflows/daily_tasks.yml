@@ -9,13 +9,13 @@ on:
         default: "https://lvc20.sched.com"
 
 jobs:
-  sched:
+  daily:
     runs-on: self-hosted
     steps:
       - name: Create working directory
         run: mkdir -p "$GITHUB_WORKSPACE/tasks"
 
-      - name: Sched trigger
+      - name: Daily tasks
         run: >-
           docker run --rm -i
           -e bamboo_connect_uid=${{ github.event.inputs.connect_uid }}
