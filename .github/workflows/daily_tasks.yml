@@ -1,0 +1,28 @@
+name: Run all daily tasks
+
+on:
+  workflow_dispatch:
+    inputs:
+      connect_uid:
+        default: "LVC20"
+      sched_url:
+        default: "https://lvc20.sched.com"
+
+jobs:
+  sched:
+    runs-on: self-hosted
+    steps:
+      - name: Create working directory
+        run: mkdir "$GITHUB_WORKSPACE/tasks"
+
+      - name: Sched trigger
+        run: >-
+          docker run --rm -i
+          -e bamboo_connect_uid=${{ github.event.inputs.connect_uid }}
+          -e bamboo_sched_url=${{ github.event.inputs.sched_url }}
+          -e bamboo_github_access_password=${{ secrets.GITHUB_PASSWORD }}
+          -e bamboo_sched_password=${{ secrets.SCHED_PASSWORD }}
+          -e bamboo_working_directory="/app/work_dir"
+          -v "$GITHUB_WORKSPACE/tasks":/app/work_dir
+          -u=$(id -u):$(id -g)
+          linaroits/connection-automation /app/main.py --daily-tasks
