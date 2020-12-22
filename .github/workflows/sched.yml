@@ -23,7 +23,6 @@ jobs:
           -e bamboo_connect_uid=${{ github.event.inputs.connect_uid }}
           -e bamboo_event_keys=${{ github.event.inputs.event_keys }}
           -e bamboo_sched_url=${{ github.event.inputs.sched_url }}
-          -e bamboo_github_access_password=${{ secrets.GITHUB_PASSWORD }}
           -e bamboo_sched_password=${{ secrets.SCHED_PASSWORD }}
           -e bamboo_working_directory="/app/work_dir"
           -v "$GITHUB_WORKSPACE/tasks":/app/work_dir
