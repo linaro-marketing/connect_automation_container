@@ -15,9 +15,11 @@ jobs:
 
       - name: Fetch git repository
         uses: actions/checkout@v2
+        with:
+          path: repo
 
       - name: Build container image
         run: |
-          cd $GITHUB_WORKSPACE
+          cd $GITHUB_WORKSPACE/repo
           docker build --no-cache --force-rm -t "linaroits/connect-automation" .
   
