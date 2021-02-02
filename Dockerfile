@@ -78,8 +78,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     /var/lib/apt/lists/*
 
 # Install ImageMagick and git cli
-RUN apt-get update --fix-missing && \
-    apt-get upgrade -y  --fix-missing && \
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update --fix-missing && \
+    apt-get upgrade -y --fix-missing && \
     apt-get install -y git --fix-missing && \
     apt-get install -y imagemagick --fix-missing
 
