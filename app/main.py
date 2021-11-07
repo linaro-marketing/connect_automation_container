@@ -124,6 +124,8 @@ class AutomationContainer:
                 if updated_presentations:
                     print("Updating the resources.json file...")
                     updated_resources_json = self.s3_interface.update()
+                    print(self.s3_interface.getMissingPresentations())
+                    print(self.s3_interface.getMissingVideos())
                     if updated_resources_json:
                         print("resources.json file updated...")
                         end_time = time.time()
@@ -330,6 +332,8 @@ class AutomationContainer:
                 if updated_presentations:
                     print("Updating the resources.json file...")
                     updated_resources_json = self.s3_interface.update()
+                    print(self.s3_interface.getMissingPresentations())
+                    print(self.s3_interface.getMissingVideos())
                     if updated_resources_json:
                         print("resources.json file updated...")
                         print("Invalidating static.linaro.org/connect/{}/* CloudFront cache...".format(self.env["bamboo_connect_uid"]))
